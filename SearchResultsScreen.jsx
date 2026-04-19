@@ -1067,7 +1067,7 @@ function SearchResultsScreen() {
   const [query, setQuery] = useS('caterpillar 336');
   const [view, setView] = useS(TWEAK_DEFAULTS.view);
   const [tab, setTab] = useS(TWEAK_DEFAULTS.tab);
-  const [subTab, setSubTab] = useS('absolute');
+  const [subTab, setSubTab] = useS('all');
   const [auctionSubTab, setAuctionSubTab] = useS('all');
   /** When set on All results, narrows to one auction or marketplace slice; null = full merged inventory */
   const [allSubTab, setAllSubTab] = useS(null);
@@ -1132,11 +1132,23 @@ function SearchResultsScreen() {
       .map(L => ({ ...L, listingKind: 'closing_today' })),
   ].sort((a, b) => effectiveCloseMinutes(a) - effectiveCloseMinutes(b));
 
+  /** Marketplace “All” — union of Absolute sale + Closing today + Buy Now / Best Offer */
+  const marketplaceAllFeed = sortAllResultsByClosingSoonest([
+    ...absoluteFiltered.map(L => ({ ...L, listingKind: 'absolute_sale' })),
+    ...closingTodayFiltered.map(L => ({ ...L, listingKind: 'closing_today' })),
+    ...listingsMatching
+      .filter(L => L.type === 'buynow')
+      .map(L => ({ ...L, listingKind: 'buynow_offer' })),
+  ]);
+
   // Filter listings by tab
+  const inMarketplaceAll = tab === 'buynow' && subTab === 'all';
   const inAbsolute = tab === 'buynow' && subTab === 'absolute';
   const inClosingToday = tab === 'buynow' && subTab === 'closing';
   const inBnobo = tab === 'buynow' && subTab === 'bnobo';
-  const visibleBase = inAbsolute
+  const visibleBase = inMarketplaceAll
+    ? marketplaceAllFeed
+    : inAbsolute
     ? [...absoluteFiltered].sort((a, b) => a.minutesLeft - b.minutesLeft)
     : inClosingToday
       ? [...closingTodayFiltered].sort((a, b) => a.minutesLeft - b.minutesLeft)
@@ -1163,11 +1175,11 @@ function SearchResultsScreen() {
                           ).map(L => ({ ...L, listingKind: 'buynow_offer' }))
                         : sortAllResultsByClosingSoonest(mergedAllFeed))
           : tab === 'auctions'
-            ? (auctionSubTab === 'closest'
-                ? closestAuctionsSorted
-                : auctionSubTab === 'closing'
-                  ? closingTodayAuctionsSorted
-                  : allAuctionsSortedList)
+            ? (auctionSubTab === 'all'
+                ? allAuctionsSortedList
+                : auctionSubTab === 'closest'
+                  ? closestAuctionsSorted
+                  : closingTodayAuctionsSorted)
             : listingsMatching.filter(L => L.type === 'buynow');
 
   const visible =
@@ -1190,13 +1202,15 @@ function SearchResultsScreen() {
     buynow: marketplaceInventoryCount,
   };
 
-  const resultTotal = inClosingToday
-    ? closingTodayFiltered.length
-    : inAbsolute
-      ? absoluteFiltered.length
-      : inBnobo
-        ? listingBuynowCount
-        : tab === 'all'
+  const resultTotal = inMarketplaceAll
+    ? marketplaceInventoryCount
+    : inClosingToday
+      ? closingTodayFiltered.length
+      : inAbsolute
+        ? absoluteFiltered.length
+        : inBnobo
+          ? listingBuynowCount
+          : tab === 'all'
           ? (allSubTab == null
               ? mergedAllFeed.length
               : allSubTab === 'a_closest' || allSubTab === 'a_all'
@@ -1211,6 +1225,7 @@ function SearchResultsScreen() {
           : counts[tab];
 
   const showBuyNowOfferTimer = inBnobo
+    || inMarketplaceAll
     || (tab === 'all' && (allSubTab == null || allSubTab === 'm_bnobo'));
 
   // Active filter chips
@@ -1359,6 +1374,7 @@ function SearchResultsScreen() {
         {tab === 'buynow' && (
           <div style={{ display: 'flex', gap: 0, paddingTop: 4 }}>
             {[
+              { k: 'all', label: 'All', icon: 'apps', count: marketplaceInventoryCount },
               { k: 'absolute', label: 'Absolute sale', icon: 'verified', count: absoluteFiltered.length },
               { k: 'closing', label: 'Closing today', icon: 'timer', count: closingTodayFiltered.length },
               { k: 'bnobo', label: 'Buy Now / Best Offer', icon: 'local_offer',
@@ -1392,9 +1408,9 @@ function SearchResultsScreen() {
         {tab === 'auctions' && (
           <div style={{ display: 'flex', gap: 0, paddingTop: 4, flexWrap: 'wrap' }}>
             {[
+              { k: 'all', label: 'All auctions', icon: 'gavel', count: auctionStock.length },
               { k: 'closest', label: 'Closest to me', icon: 'near_me', count: auctionStock.length },
               { k: 'closing', label: 'Closing Today', icon: 'today', count: closingTodayAuctionsSorted.length },
-              { k: 'all', label: 'All auctions', icon: 'gavel', count: auctionStock.length },
             ].map(s => {
               const active = auctionSubTab === s.k;
               return (
@@ -1501,7 +1517,7 @@ function SearchResultsScreen() {
             </div>
           </div>
 
-          {(inBnobo || (tab === 'all' && allSubTab === 'm_bnobo')) && (
+          {(inBnobo || inMarketplaceAll || (tab === 'all' && allSubTab === 'm_bnobo')) && (
             <div style={{
               marginBottom: 16, padding: '10px 14px', background: 'rgba(232,117,17,.08)',
               borderRadius: 4, border: '1px solid rgba(232,117,17,.28)',
