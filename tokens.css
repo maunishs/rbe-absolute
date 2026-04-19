@@ -1,0 +1,292 @@
+/* ============================================================
+   Orbit Legacy DS — tokens
+   Material-UI v5 defaults, re-palette'd with violet + orange.
+   ============================================================ */
+
+/* --- Fonts -----------------------------------------------
+   Inter ships as brand files (3 optical sizes, 9 weights ×
+   roman/italic). Declared here with `size-adjust` per optical
+   size so `font: 14px Inter` on a body label and
+   `font: 48px Inter` on a display heading each pick the
+   right cut automatically.
+
+   Roboto + Roboto Mono + Material Symbols still come from
+   Google Fonts — include this once per document:
+
+     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500&display=swap');
+     @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0');
+
+   `--fonts-dir` lets cards in nested folders rewrite the
+   base URL (e.g. `style="--fonts-dir: ../fonts"`).
+------------------------------------------------------------ */
+
+:root { --fonts-dir: fonts; }
+
+/* ----- Inter 18pt (small text, ≤18px) ----- */
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 100; size-adjust: 100%; src: url('fonts/Inter_18pt-Thin.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 200; size-adjust: 100%; src: url('fonts/Inter_18pt-ExtraLight.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 300; size-adjust: 100%; src: url('fonts/Inter_18pt-Light.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 400; size-adjust: 100%; src: url('fonts/Inter_18pt-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 500; size-adjust: 100%; src: url('fonts/Inter_18pt-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 600; size-adjust: 100%; src: url('fonts/Inter_18pt-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 700; size-adjust: 100%; src: url('fonts/Inter_18pt-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 800; size-adjust: 100%; src: url('fonts/Inter_18pt-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-display: swap; font-weight: 900; size-adjust: 100%; src: url('fonts/Inter_18pt-Black.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 100; src: url('fonts/Inter_18pt-ThinItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 200; src: url('fonts/Inter_18pt-ExtraLightItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 300; src: url('fonts/Inter_18pt-LightItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 400; src: url('fonts/Inter_18pt-Italic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 500; src: url('fonts/Inter_18pt-MediumItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 600; src: url('fonts/Inter_18pt-SemiBoldItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 700; src: url('fonts/Inter_18pt-BoldItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 800; src: url('fonts/Inter_18pt-ExtraBoldItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-display: swap; font-weight: 900; src: url('fonts/Inter_18pt-BlackItalic.ttf') format('truetype'); }
+
+/* ----- Inter 24pt (mid-size, 18–28px) — use via `font-family: 'Inter 24pt'` ----- */
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 100; src: url('fonts/Inter_24pt-Thin.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 200; src: url('fonts/Inter_24pt-ExtraLight.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 300; src: url('fonts/Inter_24pt-Light.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 400; src: url('fonts/Inter_24pt-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 500; src: url('fonts/Inter_24pt-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 600; src: url('fonts/Inter_24pt-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 700; src: url('fonts/Inter_24pt-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 800; src: url('fonts/Inter_24pt-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: normal; font-display: swap; font-weight: 900; src: url('fonts/Inter_24pt-Black.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: italic; font-display: swap; font-weight: 400; src: url('fonts/Inter_24pt-Italic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: italic; font-display: swap; font-weight: 500; src: url('fonts/Inter_24pt-MediumItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter 24pt'; font-style: italic; font-display: swap; font-weight: 700; src: url('fonts/Inter_24pt-BoldItalic.ttf') format('truetype'); }
+
+/* ----- Inter 28pt (display, ≥28px) — use via `font-family: 'Inter Display'` ----- */
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 100; src: url('fonts/Inter_28pt-Thin.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 200; src: url('fonts/Inter_28pt-ExtraLight.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 300; src: url('fonts/Inter_28pt-Light.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 400; src: url('fonts/Inter_28pt-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 500; src: url('fonts/Inter_28pt-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 600; src: url('fonts/Inter_28pt-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 700; src: url('fonts/Inter_28pt-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 800; src: url('fonts/Inter_28pt-ExtraBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: normal; font-display: swap; font-weight: 900; src: url('fonts/Inter_28pt-Black.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: italic; font-display: swap; font-weight: 400; src: url('fonts/Inter_28pt-Italic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: italic; font-display: swap; font-weight: 500; src: url('fonts/Inter_28pt-MediumItalic.ttf') format('truetype'); }
+@font-face { font-family: 'Inter Display'; font-style: italic; font-display: swap; font-weight: 700; src: url('fonts/Inter_28pt-BoldItalic.ttf') format('truetype'); }
+
+:root {
+  /* ============ BRAND / PRIMARY ============ */
+  --color-primary:            #E87511;  /* orange — main brand */
+  --color-primary-dark:       #B45C00;  /* hover */
+  --color-primary-light:      #F49418;
+  --color-primary-contrast:   #FFFFFF;
+  --color-primary-4:   rgba(232, 117, 17, 0.04);  /* hover tint on text buttons */
+  --color-primary-8:   rgba(232, 117, 17, 0.08);  /* focus / selected bg */
+  --color-primary-12:  rgba(232, 117, 17, 0.12);  /* pressed / ripple */
+  --color-primary-30:  rgba(232, 117, 17, 0.30);  /* focus ring */
+
+  --color-secondary:          #9747FF;  /* violet — accent */
+  --color-secondary-dark:     #7a39cc;
+  --color-secondary-light:    #b47aff;
+  --color-secondary-contrast: #FFFFFF;
+
+  /* ============ TEXT (on white) ============ */
+  --fg-1: rgba(0, 0, 0, 0.87);   /* primary text */
+  --fg-2: rgba(0, 0, 0, 0.60);   /* secondary text / helper */
+  --fg-3: rgba(0, 0, 0, 0.38);   /* disabled text */
+  --fg-muted: rgba(0, 0, 0, 0.26);/* disabled button label */
+  --fg-on-dark: #FFFFFF;
+
+  /* ============ SURFACES ============ */
+  --surface-1: #FFFFFF;          /* card, paper, dialog */
+  --surface-2: #FAFAFA;          /* page behind cards */
+  --surface-3: #F5F5F5;          /* list item hover, skeletons bg */
+  --surface-tint-4: rgba(0, 0, 0, 0.04);   /* hover overlay */
+  --surface-tint-8: rgba(0, 0, 0, 0.08);   /* focus */
+  --surface-tint-12: rgba(0, 0, 0, 0.12);  /* pressed / divider */
+
+  /* dark surfaces (snackbar, tooltip) */
+  --surface-dark: #323232;
+  --surface-dark-2: #505050;
+
+  /* ============ DIVIDERS + BORDERS ============ */
+  --divider:        rgba(0, 0, 0, 0.12);
+  --border-outline: rgba(0, 0, 0, 0.23);   /* outlined TextField resting */
+  --border-subtle:  rgba(0, 0, 0, 0.12);
+
+  /* ============ SEMANTIC ============ */
+  --color-error:         #D32F2F;
+  --color-error-dark:    #C62828;
+  --color-error-light:   #E57373;
+  --color-error-bg:      #FDEDED;
+
+  --color-warning:       #EF6C00;
+  --color-warning-dark:  #E65100;
+  --color-warning-light: #F49418;
+  --color-warning-bg:    #FFF4E5;
+
+  --color-info:          #0288D1;
+  --color-info-dark:     #01579B;
+  --color-info-light:    #03A9F4;
+  --color-info-bg:       #E5F6FD;
+
+  --color-success:       #2E7D32;
+  --color-success-dark:  #1B5E20;
+  --color-success-light: #4CAF50;
+  --color-success-bg:    #EDF7ED;
+
+  /* additional MUI palette roles seen in file */
+  --color-teal:   #009688;
+  --color-brown:  #703D29;
+  --color-grey-900: #212121;
+  --color-grey-800: #424242;
+  --color-grey-700: #616161;
+  --color-grey-600: #757575;
+  --color-grey-500: #9E9E9E;
+  --color-grey-400: #BDBDBD;
+  --color-grey-300: #E0E0E0;
+  --color-grey-200: #EEEEEE;
+  --color-grey-100: #F5F5F5;
+  --color-grey-50:  #FAFAFA;
+
+  /* ============ ELEVATION (verbatim from Figma) ============ */
+  --elev-0: none;
+  --elev-1: 0 1px 3px 0 rgba(0,0,0,.12), 0 1px 1px 0 rgba(0,0,0,.14), 0 2px 1px -1px rgba(0,0,0,.2);
+  --elev-2: 0 1px 5px 0 rgba(0,0,0,.12), 0 2px 2px 0 rgba(0,0,0,.14), 0 3px 1px -2px rgba(0,0,0,.2);
+  --elev-3: 0 1px 8px 0 rgba(0,0,0,.12), 0 3px 4px 0 rgba(0,0,0,.14), 0 3px 3px -2px rgba(0,0,0,.2);
+  --elev-4: 0 1px 10px 0 rgba(0,0,0,.12), 0 4px 5px 0 rgba(0,0,0,.14), 0 2px 4px -1px rgba(0,0,0,.2);
+  --elev-6: 0 1px 18px 0 rgba(0,0,0,.12), 0 6px 10px 0 rgba(0,0,0,.14), 0 3px 5px -1px rgba(0,0,0,.2);
+  --elev-8: 0 5px 22px 0 rgba(0,0,0,.12), 0 8px 10px 1px rgba(0,0,0,.14), 0 5px 5px -3px rgba(0,0,0,.2);
+  --elev-12: 0 7px 24px 2px rgba(0,0,0,.12), 0 12px 17px 2px rgba(0,0,0,.14), 0 7px 8px -4px rgba(0,0,0,.2);
+  --elev-16: 0 6px 30px 5px rgba(0,0,0,.12), 0 16px 24px 2px rgba(0,0,0,.14), 0 8px 10px -5px rgba(0,0,0,.2);
+  --elev-24: 0 9px 46px 8px rgba(0,0,0,.12), 0 24px 38px 3px rgba(0,0,0,.14), 0 11px 15px -7px rgba(0,0,0,.2);
+
+  /* ============ RADII ============ */
+  --radius-0: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;      /* DEFAULT — buttons, cards, inputs, chips */
+  --radius-lg: 8px;      /* dialogs */
+  --radius-pill: 9999px; /* chips when pill, FAB */
+  --radius-full: 50%;    /* avatars, radios */
+
+  /* ============ SPACING (MUI spacing(n) = n * 8px) ============ */
+  --space-0: 0;
+  --space-0-5: 4px;   /* spacing(.5) */
+  --space-1: 8px;
+  --space-1-5: 12px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-5: 40px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-10: 80px;
+  --space-12: 96px;
+
+  /* ============ TYPE FAMILIES ============ */
+  --font-body:    'Roboto', 'Helvetica Neue', Arial, sans-serif;   /* MUI default */
+  --font-display: 'Roboto', 'Helvetica Neue', Arial, sans-serif;   /* same family, lighter weights */
+  --font-label:   'Inter', 'Roboto', Arial, sans-serif;            /* Figma annotation / UI labels */
+  --font-mono:    'Roboto Mono', 'SFMono-Regular', Menlo, monospace;
+
+  /* ============ TYPE SCALE (MUI defaults) ============ */
+  --text-h1-size: 96px;     --text-h1-weight: 300; --text-h1-lh: 1.167; --text-h1-ls: -1.5px;
+  --text-h2-size: 60px;     --text-h2-weight: 300; --text-h2-lh: 1.2;   --text-h2-ls: -0.5px;
+  --text-h3-size: 48px;     --text-h3-weight: 400; --text-h3-lh: 1.167; --text-h3-ls: 0;
+  --text-h4-size: 34px;     --text-h4-weight: 400; --text-h4-lh: 1.235; --text-h4-ls: 0.25px;
+  --text-h5-size: 24px;     --text-h5-weight: 400; --text-h5-lh: 1.334; --text-h5-ls: 0;
+  --text-h6-size: 20px;     --text-h6-weight: 500; --text-h6-lh: 1.6;   --text-h6-ls: 0.15px;
+  --text-subtitle1: 16px;   --text-subtitle1-lh: 1.75; --text-subtitle1-ls: 0.15px; --text-subtitle1-weight: 400;
+  --text-subtitle2: 14px;   --text-subtitle2-lh: 1.57; --text-subtitle2-ls: 0.1px;  --text-subtitle2-weight: 500;
+  --text-body1: 16px;       --text-body1-lh: 1.5;  --text-body1-ls: 0.15px;  --text-body1-weight: 400;
+  --text-body2: 14px;       --text-body2-lh: 1.43; --text-body2-ls: 0.15px;  --text-body2-weight: 400;
+  --text-button: 14px;      --text-button-lh: 1.75; --text-button-ls: 0.4px;  --text-button-weight: 500;
+  --text-caption: 12px;     --text-caption-lh: 1.66; --text-caption-ls: 0.4px; --text-caption-weight: 400;
+  --text-overline: 12px;    --text-overline-lh: 2.66; --text-overline-ls: 1px; --text-overline-weight: 400;
+
+  /* ============ MOTION ============ */
+  --motion-enter: 225ms cubic-bezier(0.0, 0.0, 0.2, 1);
+  --motion-exit:  195ms cubic-bezier(0.4, 0.0, 1, 1);
+  --motion-move:  225ms cubic-bezier(0.4, 0.0, 0.2, 1);
+  --motion-ripple: 550ms cubic-bezier(0.4, 0.0, 0.2, 1);
+
+  /* ============ Z INDEX (MUI) ============ */
+  --z-appbar: 1100;
+  --z-drawer: 1200;
+  --z-modal: 1300;
+  --z-snackbar: 1400;
+  --z-tooltip: 1500;
+}
+
+/* =============================================================
+   Semantic element styles — apply straight to tags.
+   ============================================================= */
+
+html, body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--fg-1);
+  background: var(--surface-1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .h1, .type-h1 { font-family: var(--font-display); font-size: var(--text-h1-size); font-weight: var(--text-h1-weight); line-height: var(--text-h1-lh); letter-spacing: var(--text-h1-ls); color: var(--fg-1); margin: 0; }
+h2, .h2, .type-h2 { font-family: var(--font-display); font-size: var(--text-h2-size); font-weight: var(--text-h2-weight); line-height: var(--text-h2-lh); letter-spacing: var(--text-h2-ls); color: var(--fg-1); margin: 0; }
+h3, .h3, .type-h3 { font-family: var(--font-display); font-size: var(--text-h3-size); font-weight: var(--text-h3-weight); line-height: var(--text-h3-lh); letter-spacing: var(--text-h3-ls); color: var(--fg-1); margin: 0; }
+h4, .h4, .type-h4 { font-family: var(--font-display); font-size: var(--text-h4-size); font-weight: var(--text-h4-weight); line-height: var(--text-h4-lh); letter-spacing: var(--text-h4-ls); color: var(--fg-1); margin: 0; }
+h5, .h5, .type-h5 { font-family: var(--font-display); font-size: var(--text-h5-size); font-weight: var(--text-h5-weight); line-height: var(--text-h5-lh); letter-spacing: var(--text-h5-ls); color: var(--fg-1); margin: 0; }
+h6, .h6, .type-h6 { font-family: var(--font-display); font-size: var(--text-h6-size); font-weight: var(--text-h6-weight); line-height: var(--text-h6-lh); letter-spacing: var(--text-h6-ls); color: var(--fg-1); margin: 0; }
+
+p, .body1, .type-body1 {
+  font-family: var(--font-body);
+  font-size: var(--text-body1); font-weight: var(--text-body1-weight);
+  line-height: var(--text-body1-lh); letter-spacing: var(--text-body1-ls);
+  color: var(--fg-1); margin: 0 0 1em 0;
+}
+.body2, .type-body2 {
+  font-family: var(--font-body);
+  font-size: var(--text-body2); font-weight: var(--text-body2-weight);
+  line-height: var(--text-body2-lh); letter-spacing: var(--text-body2-ls);
+  color: var(--fg-1);
+}
+.subtitle1, .type-subtitle1 {
+  font-family: var(--font-body);
+  font-size: var(--text-subtitle1); font-weight: var(--text-subtitle1-weight);
+  line-height: var(--text-subtitle1-lh); letter-spacing: var(--text-subtitle1-ls);
+}
+.subtitle2, .type-subtitle2 {
+  font-family: var(--font-body);
+  font-size: var(--text-subtitle2); font-weight: var(--text-subtitle2-weight);
+  line-height: var(--text-subtitle2-lh); letter-spacing: var(--text-subtitle2-ls);
+}
+.button-label, .type-button {
+  font-family: var(--font-body);
+  font-size: var(--text-button); font-weight: var(--text-button-weight);
+  line-height: var(--text-button-lh); letter-spacing: var(--text-button-ls);
+  text-transform: uppercase;
+}
+.caption, .type-caption {
+  font-family: var(--font-body);
+  font-size: var(--text-caption); font-weight: var(--text-caption-weight);
+  line-height: var(--text-caption-lh); letter-spacing: var(--text-caption-ls);
+  color: var(--fg-2);
+}
+.overline, .type-overline {
+  font-family: var(--font-body);
+  font-size: var(--text-overline); font-weight: var(--text-overline-weight);
+  line-height: var(--text-overline-lh); letter-spacing: var(--text-overline-ls);
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+code, pre, .mono { font-family: var(--font-mono); }
+
+a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--color-primary-dark); }
+
+hr { border: 0; border-top: 1px solid var(--divider); margin: 0; }
+
+/* Material icon helper */
+.material-symbols-rounded,
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  user-select: none;
+}

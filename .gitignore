@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs & debug
+npm-debug.log*
+*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Optional: uncomment if you add Playwright/Cypress later
+# test-results/
+# playwright-report/
