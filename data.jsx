@@ -1,5 +1,14 @@
 // data.jsx — mock inventory: all rows match Caterpillar 336–family excavators (search demo)
 
+const AUCTION_EVENT_VALUES = [
+  'Orlando Auction',
+  'Grand Praire Auction',
+  'Benelux Reserve Auction',
+  'Weekly Featured Auction',
+  'Sun Belt Auction',
+];
+window.AUCTION_EVENT_NAMES = AUCTION_EVENT_VALUES;
+
 const LISTINGS = [
   {
     id: 'L-88241',
@@ -148,7 +157,141 @@ const LISTINGS = [
     priceTier: 'great',
     distanceMi: 164,
   },
+  {
+    id: 'L-93010',
+    type: 'auction',
+    title: '2020 Caterpillar 336 GC Hydraulic Excavator',
+    make: 'Caterpillar', model: '336 GC', year: 2020,
+    hours: 2650, category: 'Excavators',
+    location: 'Phoenix, AZ',
+    auction: 'Phoenix, AZ · Apr 18',
+    closing: 'Closes in 3h',
+    bid: 256000, bids: 17,
+    estimate: '$240,000 – $285,000',
+    watchers: 36,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'great',
+    distanceMi: 15,
+  },
+  {
+    id: 'L-93011',
+    type: 'auction',
+    title: '2018 Caterpillar 336F L Hydraulic Excavator — Heat & A/C',
+    make: 'Caterpillar', model: '336F L', year: 2018,
+    hours: 4980, category: 'Excavators',
+    location: 'Denver, CO',
+    auction: 'Denver, CO · Apr 18',
+    closing: 'Closes in 11h',
+    bid: 204000, bids: 13,
+    estimate: '$190,000 – $235,000',
+    watchers: 22,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'good',
+    distanceMi: 88,
+  },
+  {
+    id: 'L-93012',
+    type: 'auction',
+    title: '2019 Caterpillar 336 Next Gen Hydraulic Excavator',
+    make: 'Caterpillar', model: '336', year: 2019,
+    hours: 3520, category: 'Excavators',
+    location: 'Miami, FL',
+    auction: 'Miami, FL · Apr 18',
+    closing: 'Closes in 0d 6h',
+    bid: 238000, bids: 8,
+    estimate: '$220,000 – $268,000',
+    watchers: 19,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'great',
+    distanceMi: 1020,
+  },
+  {
+    id: 'L-93013',
+    type: 'auction',
+    title: '2016 Caterpillar 336E L Hydraulic Excavator',
+    make: 'Caterpillar', model: '336E L', year: 2016,
+    hours: 8200, category: 'Excavators',
+    location: 'Nashville, TN',
+    auction: 'Nashville, TN · Apr 18',
+    closing: 'Closes in 22h',
+    bid: 156000, bids: 5,
+    estimate: '$145,000 – $188,000',
+    watchers: 14,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'good',
+    distanceMi: 340,
+  },
+  {
+    id: 'L-93014',
+    type: 'auction',
+    title: '2021 Caterpillar 336 Hydraulic Excavator',
+    make: 'Caterpillar', model: '336', year: 2021,
+    hours: 1890, category: 'Excavators',
+    location: 'El Paso, TX',
+    auction: 'El Paso, TX · Apr 23',
+    closing: 'Closes in 5d 02h',
+    bid: 288000, bids: 21,
+    estimate: '$275,000 – $318,000',
+    watchers: 41,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'great',
+    distanceMi: 450,
+  },
+  {
+    id: 'L-93015',
+    type: 'auction',
+    title: '2017 Caterpillar 336FL Hydraulic Excavator — Long stick',
+    make: 'Caterpillar', model: '336FL', year: 2017,
+    hours: 6120, category: 'Excavators',
+    location: 'Tulsa, OK',
+    auction: 'Tulsa, OK · Apr 24',
+    closing: 'Closes in 1d 08h',
+    bid: 182000, bids: 10,
+    estimate: '$170,000 – $215,000',
+    watchers: 27,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'good',
+    distanceMi: 620,
+  },
+  {
+    id: 'L-93016',
+    type: 'auction',
+    title: '2022 Caterpillar 336 GC Hydraulic Excavator — Low hours',
+    make: 'Caterpillar', model: '336 GC', year: 2022,
+    hours: 1120, category: 'Excavators',
+    location: 'Tampa, FL',
+    auction: 'Tampa, FL · Apr 18',
+    closing: 'Closes in 0d 1h',
+    bid: 312000, bids: 26,
+    estimate: '$298,000 – $345,000',
+    watchers: 58,
+    img: 'cat-excavator',
+    reserveMet: true,
+    priceTier: 'great',
+    distanceMi: 142,
+  },
 ];
+
+function hashStr(s) {
+  let h = 0;
+  const str = String(s);
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  return h >>> 0;
+}
+
+function auctionEventFromId(id) {
+  return AUCTION_EVENT_VALUES[hashStr(String(id)) % AUCTION_EVENT_VALUES.length];
+}
+
+LISTINGS.forEach((row) => {
+  row.auctionEvent = auctionEventFromId(row.id);
+});
 
 window.LISTINGS = LISTINGS;
 
@@ -209,6 +352,10 @@ const ABSOLUTE_SALE = [
     priceTier: 'great',
   },
 ];
+ABSOLUTE_SALE.forEach((row) => {
+  row.auctionEvent = auctionEventFromId(row.id);
+});
+
 window.ABSOLUTE_SALE = ABSOLUTE_SALE;
 
 // Closing Today (Marketplace) — Cat 336 family, Thu 4:00 PM local. Reserve not met on all.
@@ -268,12 +415,16 @@ const CLOSING_TODAY = [
     priceTier: 'good',
   },
 ].sort((a, b) => a.minutesLeft - b.minutesLeft);
+CLOSING_TODAY.forEach((row) => {
+  row.auctionEvent = auctionEventFromId(row.id);
+});
+
 window.CLOSING_TODAY = CLOSING_TODAY;
 
 // Facet counts — narrowed to Cat 336 excavator search context
 window.FACETS = {
   category: [
-    { name: 'Excavators', count: 21 },
+    { name: 'Excavators', count: 28 },
     { name: 'Dozers', count: 0 },
     { name: 'Wheel Loaders', count: 0 },
     { name: 'Articulated Trucks', count: 0 },
@@ -284,7 +435,7 @@ window.FACETS = {
     { name: 'On-Highway Trucks', count: 0 },
   ],
   make: [
-    { name: 'Caterpillar', count: 21 },
+    { name: 'Caterpillar', count: 28 },
     { name: 'Komatsu', count: 0 },
     { name: 'John Deere', count: 0 },
     { name: 'Volvo', count: 0 },

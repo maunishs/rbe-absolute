@@ -1,5 +1,5 @@
 // SearchResultsScreen.jsx — Ritchie Bros search results (auctions + buy now)
-const { useState: useS, useRef: useR, useEffect: useE } = React;
+const { useState: useS, useRef: useR, useEffect: useE, useMemo: useMemo } = React;
 
 function fmtPrice(n) {
   return '$' + n.toLocaleString('en-US');
@@ -26,6 +26,102 @@ function fmtMinutesLeftShort(minutesLeft) {
   if (minutesLeft == null) return '';
   if (minutesLeft < 60) return `${minutesLeft}m left`;
   return `${Math.floor(minutesLeft / 60)}h ${minutesLeft % 60}m left`;
+}
+
+/** All marketplace Absolute sale + Closing today lots share this wall time (Eastern). */
+const MARKETPLACE_WALL_CLOSE_LABEL = '4:00 PM EST';
+const MARKETPLACE_CLOSE_TZ = 'America/New_York';
+
+function readZonedClockParts(utcMs, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    hourCycle: 'h23',
+    minute: 'numeric',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(new Date(utcMs));
+  const get = ty => Number(parts.find(p => p.type === ty)?.value);
+  return { y: get('year'), mo: get('month'), da: get('day'), h: get('hour'), mi: get('minute') };
+}
+
+function zonedPartsCompareMs(ms, timeZone, year, month, day, targetMins) {
+  const p = readZonedClockParts(ms, timeZone);
+  if (p.y !== year) return p.y - year;
+  if (p.mo !== month) return p.mo - month;
+  if (p.da !== day) return p.da - day;
+  return (p.h * 60 + p.mi) - targetMins;
+}
+
+/** Instant when `timeZone` shows year-month-day hour:minute on that calendar date. */
+function zonedWallClockToUtcMs(year, month, day, hour24, minute, timeZone) {
+  const tm = hour24 * 60 + minute;
+  /** ±36h around UTC calendar day so Eastern 4pm (up to UTC+14 from “local” midnight) stays inside. */
+  let lo = Date.UTC(year, month - 1, day) - 36 * 3600000;
+  let hi = Date.UTC(year, month - 1, day) + 36 * 3600000;
+  while (hi - lo > 60000) {
+    const mid = Math.floor((lo + hi) / 2);
+    const c = zonedPartsCompareMs(mid, timeZone, year, month, day, tm);
+    if (c === 0) {
+      let exact = mid;
+      while (
+        exact - 1000 >= lo
+        && zonedPartsCompareMs(exact - 1000, timeZone, year, month, day, tm) === 0
+      ) exact -= 1000;
+      return exact;
+    }
+    if (c < 0) lo = mid;
+    else hi = mid;
+  }
+  for (let t = lo; t <= hi; t += 1000) {
+    if (zonedPartsCompareMs(t, timeZone, year, month, day, tm) === 0) {
+      let exact = t;
+      while (
+        exact - 1000 >= lo
+        && zonedPartsCompareMs(exact - 1000, timeZone, year, month, day, tm) === 0
+      ) exact -= 1000;
+      return exact;
+    }
+  }
+  return Math.floor((lo + hi) / 2);
+}
+
+function nextMarketplaceFourPmEasternMs(now = new Date()) {
+  const tz = MARKETPLACE_CLOSE_TZ;
+  const ymd = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now);
+  const [y, mo, da] = ymd.split('-').map(Number);
+  let close = zonedWallClockToUtcMs(y, mo, da, 16, 0, tz);
+  if (close <= now.getTime()) {
+    for (let d = 1; d < 10; d++) {
+      const probe = new Date(now.getTime() + d * 86400000);
+      const ymd2 = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(probe);
+      const [Y, M, D] = ymd2.split('-').map(Number);
+      const t = zonedWallClockToUtcMs(Y, M, D, 16, 0, tz);
+      if (t > now.getTime()) {
+        close = t;
+        break;
+      }
+    }
+  }
+  return close;
+}
+
+function formatMarketplaceCountdownMs(ms) {
+  if (ms <= 0) return 'Closing now';
+  const s = Math.floor(ms / 1000);
+  const days = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (days > 0) return h > 0 ? `${days}d ${h}h` : `${days}d`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
 }
 
 function closingThursdayPhrase(closingAt) {
@@ -104,6 +200,13 @@ function passesQuickFilters(L, selected) {
   return false;
 }
 
+const AUCTION_EVENT_NAMES = window.AUCTION_EVENT_NAMES || [];
+
+function passesAuctionEvents(L, selected) {
+  if (!selected || selected.size === 0) return true;
+  return L.auctionEvent != null && selected.has(L.auctionEvent);
+}
+
 const FAR_FUTURE_MIN = Number.MAX_SAFE_INTEGER;
 
 function parseAuctionClosingMinutes(closing) {
@@ -117,11 +220,18 @@ function parseAuctionClosingMinutes(closing) {
   return FAR_FUTURE_MIN;
 }
 
-/** Comparable minutes-until-close for sorting mixed inventory on All results */
-function effectiveCloseMinutes(L) {
+/**
+ * Comparable minutes-until-close for sorting mixed inventory.
+ * When `unifiedMarketplaceMinutesRemain` is set, Absolute sale + Closing today rows share it
+ * (same wall close — 4 PM Eastern) so Marketplace “All” and merged feeds sort consistently.
+ */
+function effectiveCloseMinutes(L, unifiedMarketplaceMinutesRemain = null) {
   const k = listingKind(L);
-  if (k === 'absolute_sale' || k === 'closing_today')
+  if (k === 'absolute_sale' || k === 'closing_today') {
+    if (unifiedMarketplaceMinutesRemain != null && Number.isFinite(unifiedMarketplaceMinutesRemain))
+      return unifiedMarketplaceMinutesRemain;
     return L.minutesLeft ?? FAR_FUTURE_MIN;
+  }
   if (k === 'buynow_offer')
     return L.offerMinutesLeft ?? FAR_FUTURE_MIN;
   if (k === 'auction')
@@ -129,10 +239,10 @@ function effectiveCloseMinutes(L) {
   return FAR_FUTURE_MIN;
 }
 
-function sortAllResultsByClosingSoonest(rows) {
+function sortAllResultsByClosingSoonest(rows, unifiedMarketplaceMinutesRemain = null) {
   return [...rows].sort((a, b) => {
-    const da = effectiveCloseMinutes(a);
-    const db = effectiveCloseMinutes(b);
+    const da = effectiveCloseMinutes(a, unifiedMarketplaceMinutesRemain);
+    const db = effectiveCloseMinutes(b, unifiedMarketplaceMinutesRemain);
     if (da !== db) return da - db;
     return String(a.id).localeCompare(String(b.id));
   });
@@ -352,7 +462,7 @@ function RangeInput({ label, min, setMin, max, setMax, placeholder = ['Min', 'Ma
   );
 }
 
-function Filters({ state, update, quickFilterCounts }) {
+function Filters({ state, update, quickFilterCounts, auctionEventFacetItems }) {
   const toggle = (key, val) => {
     const n = new Set(state[key]);
     n.has(val) ? n.delete(val) : n.add(val);
@@ -371,7 +481,7 @@ function Filters({ state, update, quickFilterCounts }) {
         <Link onClick={() => update({
           categories: new Set(), makes: new Set(), years: new Set(),
           yearMin: '', yearMax: '', priceMin: '', priceMax: '', hoursMin: '', hoursMax: '',
-          quickFilters: new Set(),
+          quickFilters: new Set(), auctionEvents: new Set(),
         })}>Clear all</Link>
       </div>
 
@@ -397,6 +507,15 @@ function Filters({ state, update, quickFilterCounts }) {
         onToggle={toggleQuick}
         counts={quickFilterCounts}
       />
+
+      <FilterGroup title="Auction Events">
+        <FacetList
+          items={auctionEventFacetItems}
+          selected={state.auctionEvents}
+          onToggle={v => toggle('auctionEvents', v)}
+          limit={6}
+        />
+      </FilterGroup>
 
       <FilterGroup title="Category">
         <FacetList items={FACETS.category}
@@ -495,6 +614,52 @@ function BuyNowBadge() {
   );
 }
 
+const AUCTION_PILL_PALETTE = [
+  { bg: 'rgba(151,71,255,.14)', fg: '#5E35B1' },
+  { bg: 'rgba(232,117,17,.14)', fg: '#BF360C' },
+  { bg: 'rgba(25,118,210,.12)', fg: '#0D47A1' },
+  { bg: 'rgba(46,125,50,.14)', fg: '#1B5E20' },
+  { bg: 'rgba(0,150,136,.14)', fg: '#00695C' },
+];
+
+function auctionEventPillsList(L) {
+  if (L?.auctionEvent) return [L.auctionEvent];
+  return [];
+}
+
+function AuctionEventPill({ label, compact }) {
+  const idx = Math.max(0, AUCTION_EVENT_NAMES.indexOf(label));
+  const pal = AUCTION_PILL_PALETTE[idx % AUCTION_PILL_PALETTE.length];
+  return (
+    <span title={label} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      maxWidth: compact ? 158 : undefined,
+      overflow: compact ? 'hidden' : undefined,
+      textOverflow: compact ? 'ellipsis' : undefined,
+      whiteSpace: compact ? 'nowrap' : 'normal',
+      padding: '3px 10px', borderRadius: 9999,
+      background: pal.bg, color: pal.fg,
+      fontSize: 11, fontWeight: 500, fontFamily: 'Roboto', lineHeight: 1.25,
+      border: '1px solid rgba(0,0,0,.06)',
+    }}>
+      <Icon name="event" size={14} style={{ flexShrink: 0 }} />
+      <span style={{ minWidth: 0 }}>{label}</span>
+    </span>
+  );
+}
+
+function AuctionEventPillsRow({ L, compact }) {
+  const tags = auctionEventPillsList(L);
+  if (!tags.length) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+      {tags.map((label) => (
+        <AuctionEventPill key={label} label={label} compact={compact} />
+      ))}
+    </div>
+  );
+}
+
 function SpecRow({ items }) {
   return (
     <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '8px 0 0' }}>
@@ -512,7 +677,8 @@ function SpecRow({ items }) {
   );
 }
 
-function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer }) {
+function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUnifiedClose,
+  showAuctionEventPills }) {
   const k = listingKind(L);
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
@@ -574,24 +740,21 @@ function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer }) {
             {fmtOfferMinutesLeft(L.offerMinutesLeft)} · 30-day listing
           </div>
         )}
-        {k === 'absolute_sale' && L.minutesLeft != null && (
+        {(k === 'absolute_sale' || k === 'closing_today') && marketplaceUnifiedClose && (
           <div style={{
             position: 'absolute', bottom: 8, left: 10,
-            background: '#9747FF', color: '#fff', borderRadius: 2,
-            padding: '3px 8px', fontFamily: 'Roboto', fontSize: 12, fontWeight: 600,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: k === 'absolute_sale' ? '#9747FF' : '#E65100',
+            color: '#fff', borderRadius: 2,
+            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+            lineHeight: 1.25, maxWidth: 168,
           }}>
-            <Icon name="schedule" size={14} /> {fmtMinutesLeftShort(L.minutesLeft)}
-          </div>
-        )}
-        {k === 'closing_today' && L.minutesLeft != null && (
-          <div style={{
-            position: 'absolute', bottom: 8, left: 10,
-            background: '#E65100', color: '#fff', borderRadius: 2,
-            padding: '3px 8px', fontFamily: 'Roboto', fontSize: 12, fontWeight: 600,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-          }}>
-            <Icon name="schedule" size={14} /> {fmtMinutesLeftShort(L.minutesLeft)}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon name="schedule" size={14} /> {marketplaceUnifiedClose.countdown}
+            </span>
+            <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
+              {marketplaceUnifiedClose.wallLabel}
+            </span>
           </div>
         )}
       </div>
@@ -607,6 +770,9 @@ function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer }) {
           <Icon name="place" size={14} style={{ color: 'rgba(0,0,0,.54)' }} />
           {L.location}
         </div>
+        {showAuctionEventPills && k === 'auction' && (
+          <AuctionEventPillsRow L={L} compact />
+        )}
         <SpecRow items={[
           { label: L.hours != null ? 'Hours' : 'Miles',
             value: L.hours != null ? L.hours.toLocaleString() : L.miles.toLocaleString() },
@@ -674,13 +840,14 @@ function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer }) {
   );
 }
 
-function AbsoluteSaleCard({ L, saved, onSave }) {
-  const urgent = L.minutesLeft <= 15;
-  const soon = L.minutesLeft <= 60;
+function AbsoluteSaleCard({ L, saved, onSave, marketplaceUnifiedClose }) {
+  const m = marketplaceUnifiedClose?.minutesRemain ?? L.minutesLeft;
+  const urgent = m <= 15;
+  const soon = m <= 60;
   const accent = urgent ? '#D32F2F' : soon ? '#EF6C00' : '#9747FF';
-  const timeLabel = L.minutesLeft < 60
+  const legacyTimeLabel = L.minutesLeft < 60
     ? `${L.minutesLeft}m left`
-    : `${Math.floor(L.minutesLeft/60)}h ${L.minutesLeft%60}m left`;
+    : `${Math.floor(L.minutesLeft / 60)}h ${L.minutesLeft % 60}m left`;
   return (
     <Card style={{ borderLeft: `4px solid ${accent}` }}>
       <div style={{ display: 'flex', gap: 16, padding: 16 }}>
@@ -698,10 +865,24 @@ function AbsoluteSaleCard({ L, saved, onSave }) {
           <div style={{
             position: 'absolute', bottom: 8, left: 8,
             background: accent, color: '#fff', borderRadius: 2,
-            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 12, fontWeight: 600,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+            lineHeight: 1.25, maxWidth: 200,
           }}>
-            <Icon name="schedule" size={14} /> {timeLabel}
+            {marketplaceUnifiedClose ? (
+              <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Icon name="schedule" size={14} /> {marketplaceUnifiedClose.countdown}
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
+                  {marketplaceUnifiedClose.wallLabel}
+                </span>
+              </>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="schedule" size={14} /> {legacyTimeLabel}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -716,7 +897,12 @@ function AbsoluteSaleCard({ L, saved, onSave }) {
                   <Icon name="place" size={15} style={{ color: 'rgba(0,0,0,.54)' }} /> {L.location}
                 </span>
                 <span>Lot #{L.id}</span>
-                <span>· Closes today at {L.closingAt}</span>
+                <span>
+                  · Closes today at{' '}
+                  {marketplaceUnifiedClose
+                    ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
+                    : L.closingAt}
+                </span>
               </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
                             marginTop: 10, padding: '4px 10px', borderRadius: 9999,
@@ -765,16 +951,14 @@ function AbsoluteSaleCard({ L, saved, onSave }) {
   );
 }
 
-function ClosingTodayCard({ L, saved, onSave }) {
-  const urgent = L.minutesLeft <= 15;
-  const soon = L.minutesLeft <= 60;
+function ClosingTodayCard({ L, saved, onSave, marketplaceUnifiedClose }) {
+  const m = marketplaceUnifiedClose?.minutesRemain ?? L.minutesLeft;
+  const urgent = m <= 15;
+  const soon = m <= 60;
   const accent = urgent ? '#D32F2F' : soon ? '#EF6C00' : '#E87511';
-  const timeLabel = L.minutesLeft < 60
+  const legacyTimeLabel = L.minutesLeft < 60
     ? `${L.minutesLeft}m left`
     : `${Math.floor(L.minutesLeft / 60)}h ${L.minutesLeft % 60}m left`;
-  const closingPhrase = typeof L.closingAt === 'string'
-    ? L.closingAt.replace(/^Thu\s+/i, '').trim()
-    : '';
   return (
     <Card style={{ borderLeft: `4px solid ${accent}` }}>
       <div style={{ display: 'flex', gap: 16, padding: 16 }}>
@@ -792,10 +976,24 @@ function ClosingTodayCard({ L, saved, onSave }) {
           <div style={{
             position: 'absolute', bottom: 8, left: 8,
             background: accent, color: '#fff', borderRadius: 2,
-            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 12, fontWeight: 600,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+            lineHeight: 1.25, maxWidth: 200,
           }}>
-            <Icon name="schedule" size={14} /> {timeLabel}
+            {marketplaceUnifiedClose ? (
+              <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Icon name="schedule" size={14} /> {marketplaceUnifiedClose.countdown}
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
+                  {marketplaceUnifiedClose.wallLabel}
+                </span>
+              </>
+            ) : (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="schedule" size={14} /> {legacyTimeLabel}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -810,7 +1008,14 @@ function ClosingTodayCard({ L, saved, onSave }) {
                   <Icon name="place" size={15} style={{ color: 'rgba(0,0,0,.54)' }} /> {L.location}
                 </span>
                 <span>Lot #{L.id}</span>
-                <span>· Closes Thursday at {closingPhrase}</span>
+                <span>
+                  · Closes today at{' '}
+                  {marketplaceUnifiedClose
+                    ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
+                    : (typeof L.closingAt === 'string'
+                      ? L.closingAt.replace(/^Thu\s+/i, '').trim()
+                      : '')}
+                </span>
               </div>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
                             marginTop: 10, padding: '4px 10px', borderRadius: 9999,
@@ -860,7 +1065,8 @@ function ClosingTodayCard({ L, saved, onSave }) {
   );
 }
 
-function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer }) {
+function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUnifiedClose,
+  showAuctionEventPills }) {
   const k = listingKind(L);
   return (
     <Card>
@@ -906,11 +1112,21 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer }) {
                 </span>
                 <span>Lot #{L.id}</span>
                 {k === 'auction' && <span>· {L.auction}</span>}
-                {k === 'absolute_sale' && L.closingAt && (
-                  <span>· Closes today at {L.closingAt}</span>
+                {k === 'absolute_sale' && (
+                  <span>
+                    · Closes today at{' '}
+                    {marketplaceUnifiedClose
+                      ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
+                      : L.closingAt}
+                  </span>
                 )}
-                {k === 'closing_today' && L.closingAt && (
-                  <span>· Closes Thursday at {closingThursdayPhrase(L.closingAt)}</span>
+                {k === 'closing_today' && (
+                  <span>
+                    · Closes today at{' '}
+                    {marketplaceUnifiedClose
+                      ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
+                      : (L.closingAt ? `Thursday at ${closingThursdayPhrase(L.closingAt)}` : '')}
+                  </span>
                 )}
                 {showBuyNowOfferTimer && k === 'buynow_offer' && L.offerMinutesLeft != null && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -920,6 +1136,9 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer }) {
                   </span>
                 )}
               </div>
+              {showAuctionEventPills && k === 'auction' && (
+                <AuctionEventPillsRow L={L} compact={false} />
+              )}
               {k === 'closing_today' && (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
@@ -1010,12 +1229,26 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer }) {
                 </div>
                 <div style={{ flex: 1 }} />
                 <div style={{ textAlign: 'right', marginRight: 4 }}>
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
-                  }}>
-                    <Icon name="schedule" size={16} /> {fmtMinutesLeftShort(L.minutesLeft)}
-                  </div>
+                  {marketplaceUnifiedClose ? (
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
+                      color: '#9747FF', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
+                    }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="schedule" size={16} /> {marketplaceUnifiedClose.countdown}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: 'rgba(0,0,0,.6)' }}>
+                        {marketplaceUnifiedClose.wallLabel}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
+                    }}>
+                      <Icon name="schedule" size={16} /> {fmtMinutesLeftShort(L.minutesLeft)}
+                    </div>
+                  )}
                 </div>
                 <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
                 <Button color="secondary" size="medium" startIcon="gavel">BID NOW</Button>
@@ -1036,12 +1269,26 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer }) {
                 </div>
                 <div style={{ flex: 1 }} />
                 <div style={{ textAlign: 'right', marginRight: 4 }}>
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
-                  }}>
-                    <Icon name="schedule" size={16} /> {fmtMinutesLeftShort(L.minutesLeft)}
-                  </div>
+                  {marketplaceUnifiedClose ? (
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
+                      color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
+                    }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Icon name="schedule" size={16} /> {marketplaceUnifiedClose.countdown}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: 'rgba(0,0,0,.6)' }}>
+                        {marketplaceUnifiedClose.wallLabel}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
+                    }}>
+                      <Icon name="schedule" size={16} /> {fmtMinutesLeftShort(L.minutesLeft)}
+                    </div>
+                  )}
                 </div>
                 <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
                 <Button color="secondary" size="medium" startIcon="gavel"
@@ -1071,6 +1318,7 @@ function SearchResultsScreen() {
   const [auctionSubTab, setAuctionSubTab] = useS('all');
   /** When set on All results, narrows to one auction or marketplace slice; null = full merged inventory */
   const [allSubTab, setAllSubTab] = useS(null);
+  const [marketplaceCloseTick, setMarketplaceCloseTick] = useS(0);
 
   useE(() => {
     const h = (e) => {
@@ -1080,6 +1328,10 @@ function SearchResultsScreen() {
     };
     window.addEventListener('tweak', h);
     return () => window.removeEventListener('tweak', h);
+  }, []);
+  useE(() => {
+    const id = setInterval(() => setMarketplaceCloseTick(n => n + 1), 1000);
+    return () => clearInterval(id);
   }, []);
   const [sort, setSort] = useS('Closing soonest');
   const [sortOpen, setSortOpen] = useS(false);
@@ -1096,9 +1348,19 @@ function SearchResultsScreen() {
     hoursMin: '', hoursMax: '8000',
     financing: false,
     conditions: new Set(), inspection: new Set(['IronClad Assurance®']),
-    quickFilters: new Set(),
+    quickFilters: new Set(), auctionEvents: new Set(),
   });
   const update = (patch) => setFilters(prev => ({ ...prev, ...patch }));
+
+  const marketplaceUnifiedClose = useMemo(() => {
+    const target = nextMarketplaceFourPmEasternMs();
+    const ms = Math.max(0, target - Date.now());
+    return {
+      minutesRemain: Math.floor(ms / 60000),
+      countdown: formatMarketplaceCountdownMs(ms),
+      wallLabel: MARKETPLACE_WALL_CLOSE_LABEL,
+    };
+  }, [marketplaceCloseTick]);
 
   const toggleSave = (id) => {
     const n = new Set(saved);
@@ -1112,12 +1374,17 @@ function SearchResultsScreen() {
 
   const mergedAllFeed = mergeAllResults().filter(L => listingMatchesSearchQuery(L, query));
   const quickFilterCounts = computeQuickFilterCounts(mergedAllFeed);
+  const auctionEventFacetItems = AUCTION_EVENT_NAMES.map(name => ({
+    name,
+    count: mergedAllFeed.filter(L => L.auctionEvent === name).length,
+  }));
 
   const auctionStock = listingsMatching.filter(L => L.type === 'auction');
   const AUCTION_CLOSING_TODAY_MAX_MIN = 24 * 60;
   const closestAuctionsSorted = [...auctionStock].sort(
     (a, b) => (a.distanceMi ?? 1e9) - (b.distanceMi ?? 1e9)
   );
+  const uMins = marketplaceUnifiedClose.minutesRemain;
   const closingTodayAuctionsSorted = [...auctionStock]
     .filter(L => effectiveCloseMinutes(L) <= AUCTION_CLOSING_TODAY_MAX_MIN)
     .sort((a, b) => effectiveCloseMinutes(a) - effectiveCloseMinutes(b));
@@ -1128,9 +1395,15 @@ function SearchResultsScreen() {
   /** All results — auctions closing within 24h + marketplace Closing today rows */
   const allResultsClosingTodayCombined = [
     ...closingTodayAuctionsSorted,
-    ...[...closingTodayFiltered].sort((a, b) => a.minutesLeft - b.minutesLeft)
+    ...[...closingTodayFiltered]
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)))
       .map(L => ({ ...L, listingKind: 'closing_today' })),
-  ].sort((a, b) => effectiveCloseMinutes(a) - effectiveCloseMinutes(b));
+  ].sort((a, b) => {
+    const da = effectiveCloseMinutes(a, uMins);
+    const db = effectiveCloseMinutes(b, uMins);
+    if (da !== db) return da - db;
+    return String(a.id).localeCompare(String(b.id));
+  });
 
   /** Marketplace “All” — union of Absolute sale + Closing today + Buy Now / Best Offer */
   const marketplaceAllFeed = sortAllResultsByClosingSoonest([
@@ -1139,7 +1412,7 @@ function SearchResultsScreen() {
     ...listingsMatching
       .filter(L => L.type === 'buynow')
       .map(L => ({ ...L, listingKind: 'buynow_offer' })),
-  ]);
+  ], uMins);
 
   // Filter listings by tab
   const inMarketplaceAll = tab === 'buynow' && subTab === 'all';
@@ -1149,16 +1422,16 @@ function SearchResultsScreen() {
   const visibleBase = inMarketplaceAll
     ? marketplaceAllFeed
     : inAbsolute
-    ? [...absoluteFiltered].sort((a, b) => a.minutesLeft - b.minutesLeft)
+    ? [...absoluteFiltered].sort((a, b) => String(a.id).localeCompare(String(b.id)))
     : inClosingToday
-      ? [...closingTodayFiltered].sort((a, b) => a.minutesLeft - b.minutesLeft)
+      ? [...closingTodayFiltered].sort((a, b) => String(a.id).localeCompare(String(b.id)))
       : inBnobo
         ? [...listingsMatching.filter(L => L.type === 'buynow')].sort(
             (a, b) => (a.offerMinutesLeft ?? OFFER_WINDOW_MAX_MIN) - (b.offerMinutesLeft ?? OFFER_WINDOW_MAX_MIN)
           )
         : tab === 'all'
           ? (allSubTab == null
-              ? sortAllResultsByClosingSoonest(mergedAllFeed)
+              ? sortAllResultsByClosingSoonest(mergedAllFeed, uMins)
               : allSubTab === 'a_closest'
                 ? closestAuctionsSorted
                 : allSubTab === 'closing_today'
@@ -1166,14 +1439,14 @@ function SearchResultsScreen() {
                   : allSubTab === 'a_all'
                     ? allAuctionsSortedList
                     : allSubTab === 'm_absolute'
-                      ? [...absoluteFiltered].sort((a, b) => a.minutesLeft - b.minutesLeft)
+                      ? [...absoluteFiltered].sort((a, b) => String(a.id).localeCompare(String(b.id)))
                           .map(L => ({ ...L, listingKind: 'absolute_sale' }))
                       : allSubTab === 'm_bnobo'
                         ? [...listingsMatching.filter(L => L.type === 'buynow')].sort(
                             (a, b) => (a.offerMinutesLeft ?? OFFER_WINDOW_MAX_MIN)
                               - (b.offerMinutesLeft ?? OFFER_WINDOW_MAX_MIN)
                           ).map(L => ({ ...L, listingKind: 'buynow_offer' }))
-                        : sortAllResultsByClosingSoonest(mergedAllFeed))
+                        : sortAllResultsByClosingSoonest(mergedAllFeed, uMins))
           : tab === 'auctions'
             ? (auctionSubTab === 'all'
                 ? allAuctionsSortedList
@@ -1182,10 +1455,15 @@ function SearchResultsScreen() {
                   : closingTodayAuctionsSorted)
             : listingsMatching.filter(L => L.type === 'buynow');
 
-  const visible =
+  const visibleAfterQuick =
     !filters.quickFilters || filters.quickFilters.size === 0
       ? visibleBase
       : visibleBase.filter(L => passesQuickFilters(L, filters.quickFilters));
+
+  const visible =
+    !filters.auctionEvents || filters.auctionEvents.size === 0
+      ? visibleAfterQuick
+      : visibleAfterQuick.filter(L => passesAuctionEvents(L, filters.auctionEvents));
 
   const listingAuctionCount = auctionStock.length;
   const listingBuynowCount = listingsMatching.filter(l => l.type === 'buynow').length;
@@ -1228,6 +1506,8 @@ function SearchResultsScreen() {
     || inMarketplaceAll
     || (tab === 'all' && (allSubTab == null || allSubTab === 'm_bnobo'));
 
+  const showAuctionEventPills = tab === 'auctions';
+
   // Active filter chips
   const activeChips = [];
   filters.categories.forEach(c => activeChips.push({ key: 'categories', label: c }));
@@ -1248,6 +1528,9 @@ function SearchResultsScreen() {
       qk,
       label: QUICK_FILTER_LABELS[qk] || qk,
     });
+  });
+  filters.auctionEvents.forEach((ev) => {
+    activeChips.push({ key: 'auctionEvents', label: ev });
   });
 
   const removeChip = (c) => {
@@ -1441,7 +1724,8 @@ function SearchResultsScreen() {
       {/* Body */}
       <div style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 24px 48px',
                     display: 'grid', gridTemplateColumns: '280px 1fr', gap: 32 }}>
-        <Filters state={filters} update={update} quickFilterCounts={quickFilterCounts} />
+        <Filters state={filters} update={update} quickFilterCounts={quickFilterCounts}
+                 auctionEventFacetItems={auctionEventFacetItems} />
 
         <div>
           {/* Active chips + toolbar */}
@@ -1454,7 +1738,7 @@ function SearchResultsScreen() {
               <Link onClick={() => setFilters(f => ({
                 ...f, categories: new Set(), makes: new Set(), inspection: new Set(),
                 yearMin: '', yearMax: '', hoursMax: '',
-                quickFilters: new Set(),
+                quickFilters: new Set(), auctionEvents: new Set(),
               }))}>
                 Clear
               </Link>
@@ -1539,7 +1823,8 @@ function SearchResultsScreen() {
               {visible.map(L => (
                 <ClosingTodayCard key={L.id} L={L}
                                   saved={saved.has(L.id)}
-                                  onSave={toggleSave} />
+                                  onSave={toggleSave}
+                                  marketplaceUnifiedClose={marketplaceUnifiedClose} />
               ))}
             </div>
           ) : inAbsolute ? (
@@ -1547,7 +1832,8 @@ function SearchResultsScreen() {
               {visible.map(L => (
                 <AbsoluteSaleCard key={L.id} L={L}
                                   saved={saved.has(L.id)}
-                                  onSave={toggleSave} />
+                                  onSave={toggleSave}
+                                  marketplaceUnifiedClose={marketplaceUnifiedClose} />
               ))}
             </div>
           ) : view === 'grid' ? (
@@ -1560,7 +1846,9 @@ function SearchResultsScreen() {
                 <ListingCardGrid key={L.id} L={L}
                                  saved={saved.has(L.id)}
                                  onSave={toggleSave}
-                                 showBuyNowOfferTimer={showBuyNowOfferTimer} />
+                                 showBuyNowOfferTimer={showBuyNowOfferTimer}
+                                 marketplaceUnifiedClose={marketplaceUnifiedClose}
+                                 showAuctionEventPills={showAuctionEventPills} />
               ))}
             </div>
           ) : (
@@ -1569,7 +1857,9 @@ function SearchResultsScreen() {
                 <ListingCardList key={L.id} L={L}
                                  saved={saved.has(L.id)}
                                  onSave={toggleSave}
-                                 showBuyNowOfferTimer={showBuyNowOfferTimer} />
+                                 showBuyNowOfferTimer={showBuyNowOfferTimer}
+                                 marketplaceUnifiedClose={marketplaceUnifiedClose}
+                                 showAuctionEventPills={showAuctionEventPills} />
               ))}
             </div>
           )}
