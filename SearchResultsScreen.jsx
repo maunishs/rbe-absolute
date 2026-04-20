@@ -124,17 +124,19 @@ function formatMarketplaceCountdownMs(ms) {
   return `${sec}s`;
 }
 
-function closingThursdayPhrase(closingAt) {
-  if (typeof closingAt !== 'string') return '';
-  return closingAt.replace(/^Thu\s+/i, '').trim();
-}
-
 /** Unified marketplace + catalog row kinds for pills and layout */
 function listingKind(L) {
   if (L.listingKind) return L.listingKind;
   if (L.type === 'auction') return 'auction';
   if (L.type === 'buynow') return 'buynow_offer';
   return 'buynow_offer';
+}
+
+const BID_LIVE_AUCTION_EVENTS = new Set(['Orlando Auction', 'Sun Belt Auction']);
+
+function catalogAuctionShowsBidLive(L) {
+  return listingKind(L) === 'auction' && L.auctionEvent
+    && BID_LIVE_AUCTION_EVENTS.has(L.auctionEvent);
 }
 
 /** Each query token must appear in title, make, or model (AND). Empty query matches all. */
@@ -677,6 +679,66 @@ function SpecRow({ items }) {
   );
 }
 
+/** Bottom-left on thumbnails: primary countdown + secondary label (see marketplace / design ref). */
+function ImageBottomTimer({ bg, line1, line2, icon = 'schedule' }) {
+  return (
+    <div style={{
+      position: 'absolute', bottom: 8, left: 8,
+      background: bg, color: '#fff', borderRadius: 4,
+      padding: '6px 10px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
+      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
+      lineHeight: 1.25, maxWidth: 'calc(100% - 16px)', zIndex: 1,
+    }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Icon name={icon} size={14} /> {line1}
+      </span>
+      {line2 != null && String(line2).trim() !== '' ? (
+        <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
+          {line2}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function auctionImageTimerLines(L) {
+  const raw = String(L.closing || '');
+  const line1 = raw.replace(/^Closes in\s*/i, '').replace(/^Closes\s+/i, '').trim() || raw || '—';
+  const auctionStr = String(L.auction || '');
+  const dot = auctionStr.indexOf('·');
+  const line2 = dot >= 0 ? auctionStr.slice(dot + 1).trim() : auctionStr.trim();
+  return { line1, line2 };
+}
+
+/** 'met' | 'not' | null — same semantics as Absolute sale reserve callouts. */
+function reserveStatusForRow(L, k) {
+  if (k === 'absolute_sale')
+    return L.reserveMet === false ? 'not' : 'met';
+  if (k === 'auction' || k === 'closing_today' || k === 'buynow_offer') {
+    if (L.reserveMet === true) return 'met';
+    if (L.reserveMet === false) return 'not';
+  }
+  return null;
+}
+
+function ReserveStatusPill({ status, compact }) {
+  if (status !== 'met' && status !== 'not') return null;
+  const met = status === 'met';
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      marginTop: compact ? 6 : 8,
+      padding: '4px 10px', borderRadius: 9999,
+      background: met ? 'rgba(46,125,50,.12)' : 'rgba(237, 108, 2, .12)',
+      color: met ? '#1B5E20' : '#E65100',
+      fontFamily: 'Roboto', fontSize: compact ? 11 : 12, fontWeight: 500,
+    }}>
+      <Icon name={met ? 'check_circle' : 'flag'} size={compact ? 14 : 15} />
+      {met ? 'Reserve met · Sells to highest bidder' : 'Reserve not met'}
+    </div>
+  );
+}
+
 function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUnifiedClose,
   showAuctionEventPills }) {
   const k = listingKind(L);
@@ -720,42 +782,30 @@ function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                 size={20} style={{ color: saved ? '#E87511' : 'rgba(0,0,0,.6)' }} />
         </button>
         {k === 'auction' && (
-          <div style={{
-            position: 'absolute', bottom: 8, left: 10,
-            background: 'rgba(0,0,0,.78)', color: '#fff', borderRadius: 2,
-            padding: '3px 8px', fontFamily: 'Roboto', fontSize: 12, fontWeight: 500,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-          }}>
-            <Icon name="schedule" size={14} /> {L.closing.replace('Closes in ', '')}
-          </div>
+          <ImageBottomTimer bg="#9747FF" {...auctionImageTimerLines(L)} />
         )}
         {showBuyNowOfferTimer && k === 'buynow_offer' && L.offerMinutesLeft != null && (
-          <div style={{
-            position: 'absolute', bottom: 8, left: 10,
-            background: 'rgba(232,117,17,.95)', color: '#fff', borderRadius: 2,
-            padding: '3px 8px', fontFamily: 'Roboto', fontSize: 12, fontWeight: 500,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-          }}>
-            <Icon name="hourglass_top" size={14} />
-            {fmtOfferMinutesLeft(L.offerMinutesLeft)} · 30-day listing
-          </div>
+          <ImageBottomTimer
+            bg="#E87511"
+            icon="hourglass_top"
+            line1={fmtOfferMinutesLeft(L.offerMinutesLeft)}
+            line2="30-day listing"
+          />
         )}
-        {(k === 'absolute_sale' || k === 'closing_today') && marketplaceUnifiedClose && (
-          <div style={{
-            position: 'absolute', bottom: 8, left: 10,
-            background: k === 'absolute_sale' ? '#9747FF' : '#E65100',
-            color: '#fff', borderRadius: 2,
-            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
-            lineHeight: 1.25, maxWidth: 168,
-          }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Icon name="schedule" size={14} /> {marketplaceUnifiedClose.countdown}
-            </span>
-            <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
-              {marketplaceUnifiedClose.wallLabel}
-            </span>
-          </div>
+        {(k === 'absolute_sale' || k === 'closing_today') && (
+          marketplaceUnifiedClose ? (
+            <ImageBottomTimer
+              bg={k === 'absolute_sale' ? '#9747FF' : '#E65100'}
+              line1={marketplaceUnifiedClose.countdown}
+              line2={marketplaceUnifiedClose.wallLabel}
+            />
+          ) : (
+            <ImageBottomTimer
+              bg={k === 'absolute_sale' ? '#9747FF' : '#E65100'}
+              line1={fmtMinutesLeftShort(L.minutesLeft)}
+              line2={typeof L.closingAt === 'string' ? L.closingAt : ''}
+            />
+          )
         )}
       </div>
       <div style={{ padding: '12px 16px 0', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -773,6 +823,7 @@ function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
         {showAuctionEventPills && k === 'auction' && (
           <AuctionEventPillsRow L={L} compact />
         )}
+        <ReserveStatusPill status={reserveStatusForRow(L, k)} compact />
         <SpecRow items={[
           { label: L.hours != null ? 'Hours' : 'Miles',
             value: L.hours != null ? L.hours.toLocaleString() : L.miles.toLocaleString() },
@@ -791,7 +842,13 @@ function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                 <div style={{ fontFamily: 'Roboto', fontSize: 20, fontWeight: 500,
                                color: '#9747FF', lineHeight: 1.2 }}>{fmtPrice(L.bid)}</div>
               </div>
-              <Button size="small" color="secondary">BID</Button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                {catalogAuctionShowsBidLive(L) && (
+                  <Button color="error" variant="contained" size="small"
+                          style={{ textTransform: 'none', fontWeight: 600 }}>Bid Live</Button>
+                )}
+                <Button size="small" color="secondary">BID</Button>
+              </div>
             </>
           )}
           {(k === 'buynow_offer') && (
@@ -862,28 +919,13 @@ function AbsoluteSaleCard({ L, saved, onSave, marketplaceUnifiedClose }) {
                         letterSpacing: '.5px', textTransform: 'uppercase' }}>
             <Icon name="verified" size={13} /> Absolute sale
           </div>
-          <div style={{
-            position: 'absolute', bottom: 8, left: 8,
-            background: accent, color: '#fff', borderRadius: 2,
-            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
-            lineHeight: 1.25, maxWidth: 200,
-          }}>
-            {marketplaceUnifiedClose ? (
-              <>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Icon name="schedule" size={14} /> {marketplaceUnifiedClose.countdown}
-                </span>
-                <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
-                  {marketplaceUnifiedClose.wallLabel}
-                </span>
-              </>
-            ) : (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Icon name="schedule" size={14} /> {legacyTimeLabel}
-              </span>
-            )}
-          </div>
+          <ImageBottomTimer
+            bg="#9747FF"
+            line1={marketplaceUnifiedClose ? marketplaceUnifiedClose.countdown : legacyTimeLabel}
+            line2={marketplaceUnifiedClose
+              ? marketplaceUnifiedClose.wallLabel
+              : (typeof L.closingAt === 'string' ? L.closingAt : '')}
+          />
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -897,19 +939,8 @@ function AbsoluteSaleCard({ L, saved, onSave, marketplaceUnifiedClose }) {
                   <Icon name="place" size={15} style={{ color: 'rgba(0,0,0,.54)' }} /> {L.location}
                 </span>
                 <span>Lot #{L.id}</span>
-                <span>
-                  · Closes today at{' '}
-                  {marketplaceUnifiedClose
-                    ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
-                    : L.closingAt}
-                </span>
               </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
-                            marginTop: 10, padding: '4px 10px', borderRadius: 9999,
-                            background: 'rgba(46,125,50,.12)', color: '#1B5E20',
-                            fontFamily: 'Roboto', fontSize: 12, fontWeight: 500 }}>
-                <Icon name="check_circle" size={15} /> Reserve met · Sells to highest bidder
-              </div>
+              <ReserveStatusPill status={reserveStatusForRow(L, 'absolute_sale')} compact={false} />
             </div>
             <IconButton
               name={saved ? 'favorite' : 'favorite_border'}
@@ -942,122 +973,7 @@ function AbsoluteSaleCard({ L, saved, onSave, marketplaceUnifiedClose }) {
               </div>
             </div>
             <div style={{ flex: 1 }} />
-            <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
             <Button color="secondary" size="medium" startIcon="gavel">BID NOW</Button>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function ClosingTodayCard({ L, saved, onSave, marketplaceUnifiedClose }) {
-  const m = marketplaceUnifiedClose?.minutesRemain ?? L.minutesLeft;
-  const urgent = m <= 15;
-  const soon = m <= 60;
-  const accent = urgent ? '#D32F2F' : soon ? '#EF6C00' : '#E87511';
-  const legacyTimeLabel = L.minutesLeft < 60
-    ? `${L.minutesLeft}m left`
-    : `${Math.floor(L.minutesLeft / 60)}h ${L.minutesLeft % 60}m left`;
-  return (
-    <Card style={{ borderLeft: `4px solid ${accent}` }}>
-      <div style={{ display: 'flex', gap: 16, padding: 16 }}>
-        <div style={{ width: 240, height: 160, flexShrink: 0, borderRadius: 4,
-                      overflow: 'hidden', background: '#F5F5F5', position: 'relative' }}>
-          <PlaceholderSVG img={L.img} />
-          <div style={{ position: 'absolute', top: 8, left: 8,
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        height: 22, padding: '0 8px', borderRadius: 2,
-                        background: '#E87511', color: '#fff',
-                        fontFamily: 'Roboto', fontSize: 11, fontWeight: 500,
-                        letterSpacing: '.5px', textTransform: 'uppercase' }}>
-            <Icon name="timer" size={13} /> Closing today
-          </div>
-          <div style={{
-            position: 'absolute', bottom: 8, left: 8,
-            background: accent, color: '#fff', borderRadius: 2,
-            padding: '4px 8px', fontFamily: 'Roboto', fontSize: 11, fontWeight: 600,
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
-            lineHeight: 1.25, maxWidth: 200,
-          }}>
-            {marketplaceUnifiedClose ? (
-              <>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Icon name="schedule" size={14} /> {marketplaceUnifiedClose.countdown}
-                </span>
-                <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.95, paddingLeft: 18 }}>
-                  {marketplaceUnifiedClose.wallLabel}
-                </span>
-              </>
-            ) : (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <Icon name="schedule" size={14} /> {legacyTimeLabel}
-              </span>
-            )}
-          </div>
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'Roboto', fontSize: 18, fontWeight: 500,
-                            color: 'rgba(0,0,0,.87)', lineHeight: 1.35 }}>{L.title}</div>
-              <div style={{ fontFamily: 'Roboto', fontSize: 13, color: 'rgba(0,0,0,.6)',
-                            display: 'flex', alignItems: 'center', gap: 12, marginTop: 6,
-                            flexWrap: 'wrap' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <Icon name="place" size={15} style={{ color: 'rgba(0,0,0,.54)' }} /> {L.location}
-                </span>
-                <span>Lot #{L.id}</span>
-                <span>
-                  · Closes today at{' '}
-                  {marketplaceUnifiedClose
-                    ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
-                    : (typeof L.closingAt === 'string'
-                      ? L.closingAt.replace(/^Thu\s+/i, '').trim()
-                      : '')}
-                </span>
-              </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
-                            marginTop: 10, padding: '4px 10px', borderRadius: 9999,
-                            background: 'rgba(237, 108, 2, .12)', color: '#E65100',
-                            fontFamily: 'Roboto', fontSize: 12, fontWeight: 500 }}>
-                <Icon name="flag" size={15} /> Reserve not met
-              </div>
-            </div>
-            <IconButton
-              name={saved ? 'favorite' : 'favorite_border'}
-              color={saved ? '#E87511' : 'rgba(0,0,0,.54)'}
-              onClick={() => onSave(L.id)}
-            />
-          </div>
-
-          <SpecRow items={[
-            { label: 'Year', value: L.year },
-            { label: 'Make', value: L.make },
-            { label: 'Model', value: L.model },
-            { label: L.hours != null ? 'Hours' : 'Miles',
-              value: L.hours != null ? L.hours.toLocaleString() + ' hrs' : L.miles.toLocaleString() + ' mi' },
-            { label: 'Category', value: L.category },
-          ]} />
-
-          <div style={{ flex: 1 }} />
-
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: 12 }}>
-            <div>
-              <div className="overline" style={{
-                fontFamily: 'Roboto', fontSize: 11, textTransform: 'uppercase',
-                letterSpacing: '.6px', color: 'rgba(0,0,0,.54)',
-              }}>Starting price</div>
-              <div style={{ fontFamily: 'Roboto', fontSize: 24, fontWeight: 500,
-                             color: '#9747FF', lineHeight: 1.2 }}>{fmtPrice(L.bid)}</div>
-              <div style={{ fontFamily: 'Roboto', fontSize: 12, color: 'rgba(0,0,0,.6)' }}>
-                0 bids · Est. {L.estimate} · {L.watchers} watching
-              </div>
-            </div>
-            <div style={{ flex: 1 }} />
-            <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
-            <Button color="secondary" size="medium" startIcon="gavel"
-                    style={{ textTransform: 'none', letterSpacing: '.15px' }}>Bid Now</Button>
           </div>
         </div>
       </div>
@@ -1098,6 +1014,32 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
               </span>
             )}
           </div>
+          {k === 'auction' && (
+            <ImageBottomTimer bg="#9747FF" {...auctionImageTimerLines(L)} />
+          )}
+          {showBuyNowOfferTimer && k === 'buynow_offer' && L.offerMinutesLeft != null && (
+            <ImageBottomTimer
+              bg="#E87511"
+              icon="hourglass_top"
+              line1={fmtOfferMinutesLeft(L.offerMinutesLeft)}
+              line2="30-day listing"
+            />
+          )}
+          {(k === 'absolute_sale' || k === 'closing_today') && (
+            marketplaceUnifiedClose ? (
+              <ImageBottomTimer
+                bg={k === 'absolute_sale' ? '#9747FF' : '#E65100'}
+                line1={marketplaceUnifiedClose.countdown}
+                line2={marketplaceUnifiedClose.wallLabel}
+              />
+            ) : (
+              <ImageBottomTimer
+                bg={k === 'absolute_sale' ? '#9747FF' : '#E65100'}
+                line1={fmtMinutesLeftShort(L.minutesLeft)}
+                line2={typeof L.closingAt === 'string' ? L.closingAt : ''}
+              />
+            )
+          )}
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -1112,43 +1054,11 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                 </span>
                 <span>Lot #{L.id}</span>
                 {k === 'auction' && <span>· {L.auction}</span>}
-                {k === 'absolute_sale' && (
-                  <span>
-                    · Closes today at{' '}
-                    {marketplaceUnifiedClose
-                      ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
-                      : L.closingAt}
-                  </span>
-                )}
-                {k === 'closing_today' && (
-                  <span>
-                    · Closes today at{' '}
-                    {marketplaceUnifiedClose
-                      ? `${marketplaceUnifiedClose.wallLabel} (${marketplaceUnifiedClose.countdown})`
-                      : (L.closingAt ? `Thursday at ${closingThursdayPhrase(L.closingAt)}` : '')}
-                  </span>
-                )}
-                {showBuyNowOfferTimer && k === 'buynow_offer' && L.offerMinutesLeft != null && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
-                                 color: '#E65100', fontWeight: 500 }}>
-                    <Icon name="hourglass_top" size={15} />
-                    {fmtOfferMinutesLeft(L.offerMinutesLeft)} · 30-day window
-                  </span>
-                )}
               </div>
               {showAuctionEventPills && k === 'auction' && (
                 <AuctionEventPillsRow L={L} compact={false} />
               )}
-              {k === 'closing_today' && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8,
-                  padding: '4px 10px', borderRadius: 9999,
-                  background: 'rgba(237, 108, 2, .12)', color: '#E65100',
-                  fontFamily: 'Roboto', fontSize: 12, fontWeight: 500,
-                }}>
-                  <Icon name="flag" size={15} /> Reserve not met
-                </div>
-              )}
+              <ReserveStatusPill status={reserveStatusForRow(L, k)} compact={false} />
             </div>
             <IconButton
               name={saved ? 'favorite' : 'favorite_border'}
@@ -1179,21 +1089,17 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                   <div style={{ fontFamily: 'Roboto', fontSize: 24, fontWeight: 500,
                                  color: '#9747FF', lineHeight: 1.2 }}>{fmtPrice(L.bid)}</div>
                   <div style={{ fontFamily: 'Roboto', fontSize: 12, color: 'rgba(0,0,0,.6)' }}>
-                    {L.bids} bids · Est. {L.estimate}
+                    {L.bids} bids · Est. {L.estimate} · {L.watchers} watching
                   </div>
                 </div>
                 <div style={{ flex: 1 }} />
-                <div style={{ textAlign: 'right', marginRight: 4 }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
-                                color: '#D32F2F', fontFamily: 'Roboto', fontSize: 13,
-                                fontWeight: 500 }}>
-                    <Icon name="schedule" size={16} /> {L.closing}
-                  </div>
-                  <div style={{ fontFamily: 'Roboto', fontSize: 12, color: 'rgba(0,0,0,.6)',
-                                marginTop: 2 }}>{L.watchers} watching</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                  {catalogAuctionShowsBidLive(L) && (
+                    <Button color="error" variant="contained" size="medium"
+                            style={{ textTransform: 'none', fontWeight: 600 }}>Bid Live</Button>
+                  )}
+                  <Button color="secondary" size="medium">PLACE BID</Button>
                 </div>
-                <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
-                <Button color="secondary" size="medium">PLACE BID</Button>
               </>
             )}
             {k === 'buynow_offer' && (
@@ -1228,29 +1134,6 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                   </div>
                 </div>
                 <div style={{ flex: 1 }} />
-                <div style={{ textAlign: 'right', marginRight: 4 }}>
-                  {marketplaceUnifiedClose ? (
-                    <div style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
-                      color: '#9747FF', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
-                    }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Icon name="schedule" size={16} /> {marketplaceUnifiedClose.countdown}
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: 'rgba(0,0,0,.6)' }}>
-                        {marketplaceUnifiedClose.wallLabel}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
-                    }}>
-                      <Icon name="schedule" size={16} /> {fmtMinutesLeftShort(L.minutesLeft)}
-                    </div>
-                  )}
-                </div>
-                <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
                 <Button color="secondary" size="medium" startIcon="gavel">BID NOW</Button>
               </>
             )}
@@ -1268,29 +1151,6 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                   </div>
                 </div>
                 <div style={{ flex: 1 }} />
-                <div style={{ textAlign: 'right', marginRight: 4 }}>
-                  {marketplaceUnifiedClose ? (
-                    <div style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2,
-                      color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
-                    }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <Icon name="schedule" size={16} /> {marketplaceUnifiedClose.countdown}
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: 'rgba(0,0,0,.6)' }}>
-                        {marketplaceUnifiedClose.wallLabel}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      color: '#E65100', fontFamily: 'Roboto', fontSize: 13, fontWeight: 500,
-                    }}>
-                      <Icon name="schedule" size={16} /> {fmtMinutesLeftShort(L.minutesLeft)}
-                    </div>
-                  )}
-                </div>
-                <Button variant="outlined" color="secondary" size="medium">WATCH</Button>
                 <Button color="secondary" size="medium" startIcon="gavel"
                         style={{ textTransform: 'none', letterSpacing: '.15px' }}>Bid Now</Button>
               </>
@@ -1319,6 +1179,10 @@ function SearchResultsScreen() {
   /** When set on All results, narrows to one auction or marketplace slice; null = full merged inventory */
   const [allSubTab, setAllSubTab] = useS(null);
   const [marketplaceCloseTick, setMarketplaceCloseTick] = useS(0);
+
+  useE(() => {
+    if (tab === 'buynow' && subTab === 'bnobo') setSubTab('all');
+  }, [tab, subTab]);
 
   useE(() => {
     const h = (e) => {
@@ -1392,20 +1256,18 @@ function SearchResultsScreen() {
     (a, b) => effectiveCloseMinutes(a) - effectiveCloseMinutes(b)
   );
 
-  /** All results — auctions closing within 24h + marketplace Closing today rows */
-  const allResultsClosingTodayCombined = [
+  /** All results — auctions closing within 24h + marketplace Closing today + Absolute sale (same hierarchy as Marketplace “Closing today”). */
+  const allResultsClosingTodayCombined = sortAllResultsByClosingSoonest([
     ...closingTodayAuctionsSorted,
     ...[...closingTodayFiltered]
       .sort((a, b) => String(a.id).localeCompare(String(b.id)))
       .map(L => ({ ...L, listingKind: 'closing_today' })),
-  ].sort((a, b) => {
-    const da = effectiveCloseMinutes(a, uMins);
-    const db = effectiveCloseMinutes(b, uMins);
-    if (da !== db) return da - db;
-    return String(a.id).localeCompare(String(b.id));
-  });
+    ...absoluteFiltered.map(L => ({ ...L, listingKind: 'absolute_sale' })),
+  ], uMins);
 
-  /** Marketplace “All” — union of Absolute sale + Closing today + Buy Now / Best Offer */
+  const allResultsClosingTodayCount = allResultsClosingTodayCombined.length;
+
+  /** Marketplace tab 1 — full union: Absolute sale + Closing today + catalog Buy now / Best Offer */
   const marketplaceAllFeed = sortAllResultsByClosingSoonest([
     ...absoluteFiltered.map(L => ({ ...L, listingKind: 'absolute_sale' })),
     ...closingTodayFiltered.map(L => ({ ...L, listingKind: 'closing_today' })),
@@ -1414,22 +1276,26 @@ function SearchResultsScreen() {
       .map(L => ({ ...L, listingKind: 'buynow_offer' })),
   ], uMins);
 
+  /** Marketplace “Closing today” sub-tab — Absolute sale + Closing today (subset of tab 1, excludes catalog buy now). */
+  const marketplaceClosingTodayFeed = sortAllResultsByClosingSoonest([
+    ...absoluteFiltered.map(L => ({ ...L, listingKind: 'absolute_sale' })),
+    ...closingTodayFiltered.map(L => ({ ...L, listingKind: 'closing_today' })),
+  ], uMins);
+
+  const marketplaceClosingTodayCount =
+    absoluteFiltered.length + closingTodayFiltered.length;
+
   // Filter listings by tab
   const inMarketplaceAll = tab === 'buynow' && subTab === 'all';
   const inAbsolute = tab === 'buynow' && subTab === 'absolute';
-  const inClosingToday = tab === 'buynow' && subTab === 'closing';
-  const inBnobo = tab === 'buynow' && subTab === 'bnobo';
+  const inMarketplaceClosingUnion = tab === 'buynow' && subTab === 'closing';
   const visibleBase = inMarketplaceAll
     ? marketplaceAllFeed
     : inAbsolute
     ? [...absoluteFiltered].sort((a, b) => String(a.id).localeCompare(String(b.id)))
-    : inClosingToday
-      ? [...closingTodayFiltered].sort((a, b) => String(a.id).localeCompare(String(b.id)))
-      : inBnobo
-        ? [...listingsMatching.filter(L => L.type === 'buynow')].sort(
-            (a, b) => (a.offerMinutesLeft ?? OFFER_WINDOW_MAX_MIN) - (b.offerMinutesLeft ?? OFFER_WINDOW_MAX_MIN)
-          )
-        : tab === 'all'
+    : inMarketplaceClosingUnion
+      ? marketplaceClosingTodayFeed
+      : tab === 'all'
           ? (allSubTab == null
               ? sortAllResultsByClosingSoonest(mergedAllFeed, uMins)
               : allSubTab === 'a_closest'
@@ -1467,7 +1333,7 @@ function SearchResultsScreen() {
 
   const listingAuctionCount = auctionStock.length;
   const listingBuynowCount = listingsMatching.filter(l => l.type === 'buynow').length;
-  /** Marketplace universe = same three slices as Marketplace sub-tabs (disjoint lots) */
+  /** Marketplace tab 1 total = Absolute + Closing today + catalog Buy now (matches `marketplaceAllFeed`). */
   const marketplaceInventoryCount =
     absoluteFiltered.length + closingTodayFiltered.length + listingBuynowCount;
 
@@ -1476,25 +1342,23 @@ function SearchResultsScreen() {
     all: mergedAllFeed.length,
     /** Catalog auctions only (matches Auctions tab views) */
     auctions: listingAuctionCount,
-    /** Absolute sale + Closing today + Buy Now / Best Offer (matches Marketplace sub-tab sum) */
+    /** Full Marketplace tab 1 inventory (matches first Marketplace sub-tab total) */
     buynow: marketplaceInventoryCount,
   };
 
   const resultTotal = inMarketplaceAll
     ? marketplaceInventoryCount
-    : inClosingToday
-      ? closingTodayFiltered.length
+    : inMarketplaceClosingUnion
+      ? marketplaceClosingTodayCount
       : inAbsolute
         ? absoluteFiltered.length
-        : inBnobo
-          ? listingBuynowCount
-          : tab === 'all'
+        : tab === 'all'
           ? (allSubTab == null
               ? mergedAllFeed.length
               : allSubTab === 'a_closest' || allSubTab === 'a_all'
                 ? auctionStock.length
                 : allSubTab === 'closing_today'
-                  ? closingTodayAuctionsSorted.length + closingTodayFiltered.length
+                  ? allResultsClosingTodayCount
                   : allSubTab === 'm_absolute'
                     ? absoluteFiltered.length
                     : allSubTab === 'm_bnobo'
@@ -1502,8 +1366,7 @@ function SearchResultsScreen() {
                       : mergedAllFeed.length)
           : counts[tab];
 
-  const showBuyNowOfferTimer = inBnobo
-    || inMarketplaceAll
+  const showBuyNowOfferTimer = inMarketplaceAll
     || (tab === 'all' && (allSubTab == null || allSubTab === 'm_bnobo'));
 
   const showAuctionEventPills = tab === 'auctions';
@@ -1614,7 +1477,7 @@ function SearchResultsScreen() {
             {[
               { k: 'a_closest', label: 'Closest to me', icon: 'near_me', count: auctionStock.length },
               { k: 'closing_today', label: 'Closing today', icon: 'today',
-                count: closingTodayAuctionsSorted.length + closingTodayFiltered.length },
+                count: allResultsClosingTodayCount },
               { k: 'a_all', label: 'All auctions', icon: 'gavel', count: auctionStock.length },
               { k: 'm_absolute', label: 'Absolute sale', icon: 'verified', count: absoluteFiltered.length },
               { k: 'm_bnobo', label: 'Buy Now / Best Offer', icon: 'local_offer',
@@ -1655,13 +1518,14 @@ function SearchResultsScreen() {
 
         {/* Marketplace sub-tabs */}
         {tab === 'buynow' && (
-          <div style={{ display: 'flex', gap: 0, paddingTop: 4 }}>
+          <div style={{ display: 'flex', gap: 0, paddingTop: 4, flexWrap: 'wrap' }}>
             {[
-              { k: 'all', label: 'All', icon: 'apps', count: marketplaceInventoryCount },
-              { k: 'absolute', label: 'Absolute sale', icon: 'verified', count: absoluteFiltered.length },
-              { k: 'closing', label: 'Closing today', icon: 'timer', count: closingTodayFiltered.length },
-              { k: 'bnobo', label: 'Buy Now / Best Offer', icon: 'local_offer',
-                count: listingBuynowCount },
+              { k: 'all', label: 'Buy now/Best Offer', icon: 'storefront',
+                count: marketplaceInventoryCount },
+              { k: 'closing', label: 'Closing today', icon: 'today',
+                count: marketplaceClosingTodayCount },
+              { k: 'absolute', label: 'Absolute sale', icon: 'verified',
+                count: absoluteFiltered.length },
             ].map(s => {
               const active = subTab === s.k;
               return (
@@ -1801,7 +1665,7 @@ function SearchResultsScreen() {
             </div>
           </div>
 
-          {(inBnobo || inMarketplaceAll || (tab === 'all' && allSubTab === 'm_bnobo')) && (
+          {(inMarketplaceAll || (tab === 'all' && allSubTab === 'm_bnobo')) && (
             <div style={{
               marginBottom: 16, padding: '10px 14px', background: 'rgba(232,117,17,.08)',
               borderRadius: 4, border: '1px solid rgba(232,117,17,.28)',
@@ -1818,16 +1682,7 @@ function SearchResultsScreen() {
           )}
 
           {/* Results */}
-          {inClosingToday ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {visible.map(L => (
-                <ClosingTodayCard key={L.id} L={L}
-                                  saved={saved.has(L.id)}
-                                  onSave={toggleSave}
-                                  marketplaceUnifiedClose={marketplaceUnifiedClose} />
-              ))}
-            </div>
-          ) : inAbsolute ? (
+          {inAbsolute ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {visible.map(L => (
                 <AbsoluteSaleCard key={L.id} L={L}
