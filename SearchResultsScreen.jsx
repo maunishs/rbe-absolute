@@ -739,35 +739,176 @@ function ReserveStatusPill({ status, compact }) {
   );
 }
 
+/** Tie rows at minimum `distanceMi` get `closestToYou` (ZIP-based mock distances). */
+function markClosestToYouSpotlight(rows) {
+  const withD = rows.filter(r => r.distanceMi != null && Number.isFinite(r.distanceMi));
+  if (withD.length === 0) return rows.map(r => ({ ...r, closestToYou: false }));
+  const minD = Math.min(...withD.map(r => r.distanceMi));
+  return rows.map(r => ({
+    ...r,
+    closestToYou: Boolean(
+      r.distanceMi != null && Number.isFinite(r.distanceMi) && r.distanceMi === minD,
+    ),
+  }));
+}
+
+function ClosingTodaySpotlightCard({ L, marketplaceUnifiedClose, saved, onSave }) {
+  const k = listingKind(L);
+  const primary = k === 'buynow_offer' ? fmtPrice(L.price) : fmtPrice(L.bid);
+  const subtitle =
+    (k === 'absolute_sale' || k === 'closing_today') && marketplaceUnifiedClose
+      ? `${marketplaceUnifiedClose.countdown} · ${marketplaceUnifiedClose.wallLabel}`
+      : k === 'auction' && L.closing
+        ? L.closing
+        : k === 'buynow_offer' && L.offerMinutesLeft != null
+          ? fmtOfferMinutesLeft(L.offerMinutesLeft)
+          : fmtMinutesLeftShort(L.minutesLeft);
+  return (
+    <div style={{
+      width: 220, flexShrink: 0, background: '#fff', borderRadius: 4,
+      border: '1px solid rgba(0,0,0,.1)', overflow: 'hidden',
+      boxShadow: '0 1px 2px rgba(0,0,0,.06)',
+    }}>
+      {/* ~50% shorter than 5/3 image: height ≈ width × 3/10 */}
+      <div style={{ position: 'relative', aspectRatio: '10/3', background: '#F5F5F5' }}>
+        <PlaceholderSVG img={L.img} />
+        <div style={{ position: 'absolute', top: 4, left: 4 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', height: 16, padding: '0 5px',
+            borderRadius: 2, background: '#7B1FA2', color: '#fff',
+            fontFamily: 'Roboto', fontSize: 8, fontWeight: 600, letterSpacing: '.2px',
+          }}>Closing today</span>
+        </div>
+        {L.closestToYou && (
+          <div style={{
+            position: 'absolute', top: 4, right: 4, maxWidth: 118,
+            display: 'inline-flex', alignItems: 'center', gap: 2, minHeight: 18,
+            padding: '0 5px', borderRadius: 9999, background: '#E87511', color: '#fff',
+            fontFamily: 'Roboto', fontSize: 8, fontWeight: 600, lineHeight: 1.15,
+            boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+          }}>
+            <Icon name="near_me" size={10} style={{ flexShrink: 0 }} />
+            <span>Closest to you</span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSave(L.id); }}
+          style={{
+            position: 'absolute', bottom: 3, right: 3, width: 24, height: 24,
+            borderRadius: '50%', background: 'rgba(255,255,255,.95)', border: 0,
+            cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+            justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,.15)',
+          }}>
+          <Icon name={saved ? 'favorite' : 'favorite_border'}
+                size={14} style={{ color: saved ? '#E87511' : 'rgba(0,0,0,.6)' }} />
+        </button>
+      </div>
+      <div style={{ padding: '5px 8px 6px' }}>
+        <div style={{
+          fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, color: 'rgba(0,0,0,.87)',
+          lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          overflow: 'hidden', minHeight: 0, maxHeight: 28,
+        }}>
+          {L.title}
+        </div>
+        <div style={{
+          marginTop: 2, fontFamily: 'Roboto', fontSize: 9, color: 'rgba(0,0,0,.54)',
+          display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', lineHeight: 1.25,
+        }}>
+          <Icon name="place" size={11} style={{ flexShrink: 0 }} />
+          <span style={{ minWidth: 0 }}>{L.location}</span>
+          {L.distanceMi != null && Number.isFinite(L.distanceMi) && (
+            <span style={{ color: 'rgba(0,0,0,.38)' }}>· {L.distanceMi} mi from you</span>
+          )}
+        </div>
+        <div style={{
+          marginTop: 1, fontFamily: 'Roboto', fontSize: 9, color: 'rgba(0,0,0,.5)',
+          lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{subtitle}</div>
+        <div style={{
+          marginTop: 3, fontFamily: 'Roboto', fontSize: 13, fontWeight: 600,
+          color: k === 'buynow_offer' ? 'rgba(0,0,0,.87)' : '#9747FF', lineHeight: 1.2,
+        }}>{primary}</div>
+      </div>
+    </div>
+  );
+}
+
+function ClosingTodaySpotlightRail({ rows, marketplaceUnifiedClose, saved, onSave }) {
+  if (!rows.length) return null;
+  return (
+    <div style={{ maxWidth: 1440, margin: '0 auto', padding: '12px 24px 0' }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 12, marginBottom: 10, flexWrap: 'wrap',
+      }}>
+        <div style={{ fontFamily: 'Roboto', fontSize: 15, fontWeight: 500, color: 'rgba(0,0,0,.87)' }}>
+          Closing today — auctions & marketplace
+        </div>
+        <span style={{ fontFamily: 'Roboto', fontSize: 12, color: 'rgba(0,0,0,.45)' }}>
+          Ending soonest first · {rows.length.toLocaleString()} shown
+        </span>
+      </div>
+      <div style={{
+        display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4,
+        WebkitOverflowScrolling: 'touch',
+      }}>
+        {rows.map(L => (
+          <ClosingTodaySpotlightCard
+            key={L.id}
+            L={L}
+            marketplaceUnifiedClose={marketplaceUnifiedClose}
+            saved={saved}
+            onSave={onSave}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ListingCardGrid({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUnifiedClose,
-  showAuctionEventPills }) {
+  showAuctionEventPills, unifiedClosingTodayImagePill }) {
   const k = listingKind(L);
   return (
     <Card style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
       <div style={{ position: 'relative', aspectRatio: '400/260', background: '#F5F5F5' }}>
         <PlaceholderSVG img={L.img} />
         <div style={{ position: 'absolute', top: 10, left: 10 }}>
-          {k === 'auction' && <AuctionBadge />}
-          {k === 'buynow_offer' && <BuyNowBadge />}
-          {k === 'absolute_sale' && (
+          {unifiedClosingTodayImagePill ? (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
-              padding: '0 8px', borderRadius: 2, background: '#9747FF', color: '#fff',
-              fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
-              textTransform: 'uppercase',
-            }}>
-              <Icon name="verified" size={13} /> Absolute sale
-            </span>
-          )}
-          {k === 'closing_today' && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
-              padding: '0 8px', borderRadius: 2, background: '#E87511', color: '#fff',
-              fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
-              textTransform: 'uppercase',
+              padding: '0 8px', borderRadius: 2, background: '#7B1FA2', color: '#fff',
+              fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.2px',
             }}>
               <Icon name="timer" size={13} /> Closing today
             </span>
+          ) : (
+            <>
+              {k === 'auction' && <AuctionBadge />}
+              {k === 'buynow_offer' && <BuyNowBadge />}
+              {k === 'absolute_sale' && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
+                  padding: '0 8px', borderRadius: 2, background: '#9747FF', color: '#fff',
+                  fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
+                  textTransform: 'uppercase',
+                }}>
+                  <Icon name="verified" size={13} /> Absolute sale
+                </span>
+              )}
+              {k === 'closing_today' && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
+                  padding: '0 8px', borderRadius: 2, background: '#E87511', color: '#fff',
+                  fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
+                  textTransform: 'uppercase',
+                }}>
+                  <Icon name="timer" size={13} /> Closing today
+                </span>
+              )}
+            </>
           )}
         </div>
         <button
@@ -914,10 +1055,10 @@ function AbsoluteSaleCard({ L, saved, onSave, marketplaceUnifiedClose }) {
           <div style={{ position: 'absolute', top: 8, left: 8,
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         height: 22, padding: '0 8px', borderRadius: 2,
-                        background: '#9747FF', color: '#fff',
+                        background: '#7B1FA2', color: '#fff',
                         fontFamily: 'Roboto', fontSize: 11, fontWeight: 500,
-                        letterSpacing: '.5px', textTransform: 'uppercase' }}>
-            <Icon name="verified" size={13} /> Absolute sale
+                        letterSpacing: '.2px' }}>
+            <Icon name="timer" size={13} /> Closing today
           </div>
           <ImageBottomTimer
             bg="#9747FF"
@@ -982,7 +1123,7 @@ function AbsoluteSaleCard({ L, saved, onSave, marketplaceUnifiedClose }) {
 }
 
 function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUnifiedClose,
-  showAuctionEventPills }) {
+  showAuctionEventPills, unifiedClosingTodayImagePill }) {
   const k = listingKind(L);
   return (
     <Card>
@@ -991,27 +1132,39 @@ function ListingCardList({ L, saved, onSave, showBuyNowOfferTimer, marketplaceUn
                       overflow: 'hidden', background: '#F5F5F5', position: 'relative' }}>
           <PlaceholderSVG img={L.img} />
           <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {k === 'auction' && <AuctionBadge />}
-            {k === 'buynow_offer' && <BuyNowBadge />}
-            {k === 'absolute_sale' && (
+            {unifiedClosingTodayImagePill ? (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
-                padding: '0 8px', borderRadius: 2, background: '#9747FF', color: '#fff',
-                fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
-                textTransform: 'uppercase',
-              }}>
-                <Icon name="verified" size={13} /> Absolute sale
-              </span>
-            )}
-            {k === 'closing_today' && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
-                padding: '0 8px', borderRadius: 2, background: '#E87511', color: '#fff',
-                fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
-                textTransform: 'uppercase',
+                padding: '0 8px', borderRadius: 2, background: '#7B1FA2', color: '#fff',
+                fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.2px',
               }}>
                 <Icon name="timer" size={13} /> Closing today
               </span>
+            ) : (
+              <>
+                {k === 'auction' && <AuctionBadge />}
+                {k === 'buynow_offer' && <BuyNowBadge />}
+                {k === 'absolute_sale' && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
+                    padding: '0 8px', borderRadius: 2, background: '#9747FF', color: '#fff',
+                    fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
+                    textTransform: 'uppercase',
+                  }}>
+                    <Icon name="verified" size={13} /> Absolute sale
+                  </span>
+                )}
+                {k === 'closing_today' && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, height: 22,
+                    padding: '0 8px', borderRadius: 2, background: '#E87511', color: '#fff',
+                    fontFamily: 'Roboto', fontSize: 11, fontWeight: 500, letterSpacing: '.5px',
+                    textTransform: 'uppercase',
+                  }}>
+                    <Icon name="timer" size={13} /> Closing today
+                  </span>
+                )}
+              </>
             )}
           </div>
           {k === 'auction' && (
@@ -1267,6 +1420,10 @@ function SearchResultsScreen() {
 
   const allResultsClosingTodayCount = allResultsClosingTodayCombined.length;
 
+  const spotlightClosingTodayRows = markClosestToYouSpotlight(
+    allResultsClosingTodayCombined.slice(0, 14),
+  );
+
   /** Marketplace tab 1 — full union: Absolute sale + Closing today + catalog Buy now / Best Offer */
   const marketplaceAllFeed = sortAllResultsByClosingSoonest([
     ...absoluteFiltered.map(L => ({ ...L, listingKind: 'absolute_sale' })),
@@ -1289,6 +1446,10 @@ function SearchResultsScreen() {
   const inMarketplaceAll = tab === 'buynow' && subTab === 'all';
   const inAbsolute = tab === 'buynow' && subTab === 'absolute';
   const inMarketplaceClosingUnion = tab === 'buynow' && subTab === 'closing';
+  const unifiedClosingTodayImagePill =
+    inMarketplaceClosingUnion
+    || (tab === 'all' && allSubTab === 'closing_today')
+    || (tab === 'auctions' && auctionSubTab === 'closing');
   const visibleBase = inMarketplaceAll
     ? marketplaceAllFeed
     : inAbsolute
@@ -1436,6 +1597,13 @@ function SearchResultsScreen() {
           </span>
         </div>
       </div>
+
+      <ClosingTodaySpotlightRail
+        rows={spotlightClosingTodayRows}
+        marketplaceUnifiedClose={marketplaceUnifiedClose}
+        saved={saved}
+        onSave={toggleSave}
+      />
 
       {/* Tabs */}
       <div style={{ maxWidth: 1440, margin: '0 auto', padding: '16px 24px 0',
@@ -1703,7 +1871,8 @@ function SearchResultsScreen() {
                                  onSave={toggleSave}
                                  showBuyNowOfferTimer={showBuyNowOfferTimer}
                                  marketplaceUnifiedClose={marketplaceUnifiedClose}
-                                 showAuctionEventPills={showAuctionEventPills} />
+                                 showAuctionEventPills={showAuctionEventPills}
+                                 unifiedClosingTodayImagePill={unifiedClosingTodayImagePill} />
               ))}
             </div>
           ) : (
@@ -1714,7 +1883,8 @@ function SearchResultsScreen() {
                                  onSave={toggleSave}
                                  showBuyNowOfferTimer={showBuyNowOfferTimer}
                                  marketplaceUnifiedClose={marketplaceUnifiedClose}
-                                 showAuctionEventPills={showAuctionEventPills} />
+                                 showAuctionEventPills={showAuctionEventPills}
+                                 unifiedClosingTodayImagePill={unifiedClosingTodayImagePill} />
               ))}
             </div>
           )}

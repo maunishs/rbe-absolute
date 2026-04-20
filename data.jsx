@@ -354,6 +354,7 @@ const ABSOLUTE_SALE = [
 ];
 ABSOLUTE_SALE.forEach((row) => {
   row.auctionEvent = auctionEventFromId(row.id);
+  row.distanceMi = 55 + (hashStr(String(row.id)) % 420);
 });
 
 window.ABSOLUTE_SALE = ABSOLUTE_SALE;
@@ -417,6 +418,7 @@ const CLOSING_TODAY = [
 ].sort((a, b) => a.minutesLeft - b.minutesLeft);
 CLOSING_TODAY.forEach((row) => {
   row.auctionEvent = auctionEventFromId(row.id);
+  row.distanceMi = 48 + (hashStr(String(row.id)) % 440);
 });
 
 window.CLOSING_TODAY = CLOSING_TODAY;
