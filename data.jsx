@@ -295,13 +295,13 @@ LISTINGS.forEach((row) => {
 
 window.LISTINGS = LISTINGS;
 
-// Absolute sale — Cat 336 family, all close today at 4:00 PM local. Reserve met on all.
+// Absolute sale — Cat 336 family; unified wall close 4:00 PM America/New_York (see SearchResultsScreen). Reserve met on all.
 const ABSOLUTE_SALE = [
   {
     id: 'A-77101', title: '2023 Caterpillar 336 Hydraulic Excavator',
     make: 'Caterpillar', model: '336', year: 2023,
     hours: 890, category: 'Excavators',
-    location: 'Edmonton, AB', closingAt: '4:00 PM MDT',
+    location: 'Edmonton, AB', closingAt: '4:00 PM EST',
     minutesLeft: 42, bid: 298000, bids: 19, estimate: '$285,000 – $325,000',
     watchers: 63, reserveMet: true, img: 'cat-excavator',
     priceTier: 'great',
@@ -310,7 +310,7 @@ const ABSOLUTE_SALE = [
     id: 'A-77208', title: '2017 Caterpillar 336FL Hydraulic Excavator',
     make: 'Caterpillar', model: '336FL', year: 2017,
     hours: 6140, category: 'Excavators',
-    location: 'Fort Worth, TX', closingAt: '4:00 PM CDT',
+    location: 'Fort Worth, TX', closingAt: '4:00 PM EST',
     minutesLeft: 168, bid: 192000, bids: 24, estimate: '$180,000 – $230,000',
     watchers: 88, reserveMet: true, img: 'cat-excavator',
     priceTier: 'great',
@@ -319,7 +319,7 @@ const ABSOLUTE_SALE = [
     id: 'A-77314', title: '2019 Caterpillar 336 GC Hydraulic Excavator',
     make: 'Caterpillar', model: '336 GC', year: 2019,
     hours: 3820, category: 'Excavators',
-    location: 'Orlando, FL', closingAt: '4:00 PM EDT',
+    location: 'Orlando, FL', closingAt: '4:00 PM EST',
     minutesLeft: 12, bid: 244000, bids: 31, estimate: '$230,000 – $275,000',
     watchers: 104, reserveMet: true, img: 'cat-excavator',
     priceTier: 'great',
@@ -328,7 +328,7 @@ const ABSOLUTE_SALE = [
     id: 'A-77422', title: '2020 Caterpillar 336 Next Gen Hydraulic Excavator',
     make: 'Caterpillar', model: '336', year: 2020,
     hours: 2940, category: 'Excavators',
-    location: 'Davenport, IA', closingAt: '4:00 PM CDT',
+    location: 'Davenport, IA', closingAt: '4:00 PM EST',
     minutesLeft: 215, bid: 268000, bids: 11, estimate: '$255,000 – $295,000',
     watchers: 41, reserveMet: true, img: 'cat-excavator',
     priceTier: 'good',
@@ -337,7 +337,7 @@ const ABSOLUTE_SALE = [
     id: 'A-77501', title: '2016 Caterpillar 336E L Hydraulic Excavator',
     make: 'Caterpillar', model: '336E L', year: 2016,
     hours: 8120, category: 'Excavators',
-    location: 'Casa Grande, AZ', closingAt: '4:00 PM MST',
+    location: 'Casa Grande, AZ', closingAt: '4:00 PM EST',
     minutesLeft: 94, bid: 168000, bids: 15, estimate: '$155,000 – $195,000',
     watchers: 52, reserveMet: true, img: 'cat-excavator',
     priceTier: 'good',
@@ -346,7 +346,7 @@ const ABSOLUTE_SALE = [
     id: 'A-77615', title: '2018 Caterpillar 336F L Hydraulic Excavator',
     make: 'Caterpillar', model: '336F L', year: 2018,
     hours: 4520, category: 'Excavators',
-    location: 'Houston, TX', closingAt: '4:00 PM CDT',
+    location: 'Houston, TX', closingAt: '4:00 PM EST',
     minutesLeft: 3, bid: 212000, bids: 27, estimate: '$198,000 – $242,000',
     watchers: 71, reserveMet: true, img: 'cat-excavator',
     priceTier: 'great',
@@ -359,13 +359,13 @@ ABSOLUTE_SALE.forEach((row) => {
 
 window.ABSOLUTE_SALE = ABSOLUTE_SALE;
 
-// Closing Today (Marketplace) — Cat 336 family, Thu 4:00 PM local. Reserve not met on all.
+// Closing Today (Marketplace) — Cat 336 family; same unified 4:00 PM EST wall as Absolute sale. Reserve not met on all.
 const CLOSING_TODAY = [
   {
     id: 'C-55012', title: '2015 Caterpillar 336D L Hydraulic Excavator',
     make: 'Caterpillar', model: '336D L', year: 2015,
     hours: 9880, category: 'Excavators',
-    location: 'Houston, TX', closingAt: 'Thu 4:00 PM CDT',
+    location: 'Houston, TX', closingAt: '4:00 PM EST',
     minutesLeft: 8, bid: 118000, bids: 5, estimate: '$108,000 – $142,000',
     watchers: 38, img: 'cat-excavator', reserveMet: false,
     priceTier: 'good',
@@ -374,7 +374,7 @@ const CLOSING_TODAY = [
     id: 'C-55127', title: '2021 Caterpillar 336 GC Hydraulic Excavator',
     make: 'Caterpillar', model: '336 GC', year: 2021,
     hours: 2150, category: 'Excavators',
-    location: 'Columbus, OH', closingAt: 'Thu 4:00 PM EDT',
+    location: 'Columbus, OH', closingAt: '4:00 PM EST',
     minutesLeft: 22, bid: 252000, bids: 8, estimate: '$238,000 – $278,000',
     watchers: 24, img: 'cat-excavator', reserveMet: false,
     priceTier: 'great',
@@ -383,7 +383,7 @@ const CLOSING_TODAY = [
     id: 'C-55204', title: '2017 Caterpillar 336FL Hydraulic Excavator',
     make: 'Caterpillar', model: '336FL', year: 2017,
     hours: 5280, category: 'Excavators',
-    location: 'Davenport, IA', closingAt: 'Thu 4:00 PM CDT',
+    location: 'Davenport, IA', closingAt: '4:00 PM EST',
     minutesLeft: 47, bid: 178000, bids: 6, estimate: '$165,000 – $208,000',
     watchers: 17, img: 'cat-excavator', reserveMet: false,
     priceTier: 'good',
@@ -392,7 +392,7 @@ const CLOSING_TODAY = [
     id: 'C-55318', title: '2019 Caterpillar 336 Hydraulic Excavator',
     make: 'Caterpillar', model: '336', year: 2019,
     hours: 3840, category: 'Excavators',
-    location: 'Las Vegas, NV', closingAt: 'Thu 4:00 PM PDT',
+    location: 'Las Vegas, NV', closingAt: '4:00 PM EST',
     minutesLeft: 95, bid: 228000, bids: 4, estimate: '$215,000 – $255,000',
     watchers: 12, img: 'cat-excavator', reserveMet: false,
     priceTier: 'great',
@@ -401,7 +401,7 @@ const CLOSING_TODAY = [
     id: 'C-55412', title: '2016 Caterpillar 336E L Hydraulic Excavator',
     make: 'Caterpillar', model: '336E L', year: 2016,
     hours: 7420, category: 'Excavators',
-    location: 'Fort Worth, TX', closingAt: 'Thu 4:00 PM CDT',
+    location: 'Fort Worth, TX', closingAt: '4:00 PM EST',
     minutesLeft: 138, bid: 152000, bids: 11, estimate: '$142,000 – $182,000',
     watchers: 44, img: 'cat-excavator', reserveMet: false,
     priceTier: 'great',
@@ -410,7 +410,7 @@ const CLOSING_TODAY = [
     id: 'C-55520', title: '2022 Caterpillar 336 Next Gen Hydraulic Excavator',
     make: 'Caterpillar', model: '336', year: 2022,
     hours: 1680, category: 'Excavators',
-    location: 'Edmonton, AB', closingAt: 'Thu 4:00 PM MDT',
+    location: 'Edmonton, AB', closingAt: '4:00 PM EST',
     minutesLeft: 204, bid: 302000, bids: 9, estimate: '$288,000 – $338,000',
     watchers: 29, img: 'cat-excavator', reserveMet: false,
     priceTier: 'good',

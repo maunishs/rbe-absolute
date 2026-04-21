@@ -87,41 +87,30 @@ function zonedWallClockToUtcMs(year, month, day, hour24, minute, timeZone) {
   return Math.floor((lo + hi) / 2);
 }
 
-function nextMarketplaceFourPmEasternMs(now = new Date()) {
+/**
+ * Eastern calendar “today” at 4:00 PM — matches “Closing today” + `4:00 PM EST` on cards.
+ * (Do not roll to tomorrow’s 4 PM after today’s close; that produced ~22h skew vs the label.)
+ */
+function todayMarketplaceFourPmEasternMs(now = new Date()) {
   const tz = MARKETPLACE_CLOSE_TZ;
   const ymd = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(now);
   const [y, mo, da] = ymd.split('-').map(Number);
-  let close = zonedWallClockToUtcMs(y, mo, da, 16, 0, tz);
-  if (close <= now.getTime()) {
-    for (let d = 1; d < 10; d++) {
-      const probe = new Date(now.getTime() + d * 86400000);
-      const ymd2 = new Intl.DateTimeFormat('en-CA', {
-        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(probe);
-      const [Y, M, D] = ymd2.split('-').map(Number);
-      const t = zonedWallClockToUtcMs(Y, M, D, 16, 0, tz);
-      if (t > now.getTime()) {
-        close = t;
-        break;
-      }
-    }
-  }
-  return close;
+  return zonedWallClockToUtcMs(y, mo, da, 16, 0, tz);
 }
 
 function formatMarketplaceCountdownMs(ms) {
-  if (ms <= 0) return 'Closing now';
+  if (ms <= 0) return 'Closed';
   const s = Math.floor(ms / 1000);
   const days = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  if (days > 0) return h > 0 ? `${days}d ${h}h` : `${days}d`;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${sec}s`;
-  return `${sec}s`;
+  if (days > 0) return h > 0 ? `${days}d ${h}h left` : `${days}d left`;
+  if (h > 0) return `${h}h ${m}m left`;
+  if (m > 0) return `${m}m ${sec}s left`;
+  return `${sec}s left`;
 }
 
 /** Unified marketplace + catalog row kinds for pills and layout */
@@ -1370,12 +1359,12 @@ function SearchResultsScreen() {
   const update = (patch) => setFilters(prev => ({ ...prev, ...patch }));
 
   const marketplaceUnifiedClose = useMemo(() => {
-    const target = nextMarketplaceFourPmEasternMs();
+    const target = todayMarketplaceFourPmEasternMs();
     const ms = Math.max(0, target - Date.now());
     return {
       minutesRemain: Math.floor(ms / 60000),
       countdown: formatMarketplaceCountdownMs(ms),
-      wallLabel: MARKETPLACE_WALL_CLOSE_LABEL,
+      wallLabel: ms > 0 ? MARKETPLACE_WALL_CLOSE_LABEL : `${MARKETPLACE_WALL_CLOSE_LABEL} · ended`,
     };
   }, [marketplaceCloseTick]);
 
